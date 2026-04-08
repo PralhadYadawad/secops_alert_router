@@ -1,0 +1,18 @@
+spec_version: 1
+name: secops_env
+description: "Cybersecurity SOC Alert Triage — AI agent learns to investigate, contain, or resolve security alerts balancing speed vs accuracy"
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
+
+tasks:
+  - name: benign-filter
+    description: "Easy: Correctly identify and resolve benign medium-severity alerts"
+    difficulty: easy
+  - name: mixed-triage
+    description: "Medium: Triage mixed-severity alerts balancing investigation speed vs accuracy"
+    difficulty: medium
+  - name: critical-escalation
+    description: "Hard: Rapidly contain critical threats with minimal false positives under time pressure"
+    difficulty: hard
