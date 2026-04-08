@@ -38,11 +38,11 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
             reward (float), steps (int), outcome (str), max_steps (int)
 
     Returns:
-        Score clamped to [0.0, 1.0].
+        Score strictly in (0, 1) — never exactly 0.0 or 1.0.
     """
     total = len(episode_results)
     if total == 0:
-        return 0.0
+        return 0.01
 
     correct_count = sum(1 for ep in episode_results if ep["outcome"] in CORRECT_OUTCOMES)
     accuracy = correct_count / total

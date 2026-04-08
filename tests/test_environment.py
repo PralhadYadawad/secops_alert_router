@@ -104,15 +104,19 @@ def test_low_false_positive_rate():
 
 # ---------- Test 6: Grader returns score in [0, 1] ----------
 def test_grader_bounds():
-    """grade_task must return a float in [0.0, 1.0] for all tasks."""
+    """grade_task must return a float strictly in (0, 1) for all tasks."""
     for task_name in TASK_NAMES:
         results = [{"reward": -50, "steps": 5, "outcome": "timeout_breach", "max_steps": 5}]
         score = grade_task(task_name, results)
-        assert 0.0 <= score <= 1.0, f"{task_name} worst-case score {score} out of bounds"
+        assert 0.0 < score < 1.0, f"{task_name} worst-case score {score} out of bounds"
 
         results = [{"reward": 12, "steps": 2, "outcome": "true_positive_fast", "max_steps": 5}]
         score = grade_task(task_name, results)
-        assert 0.0 <= score <= 1.0, f"{task_name} best-case score {score} out of bounds"
+        assert 0.0 < score < 1.0, f"{task_name} best-case score {score} out of bounds"
+
+        # Edge case: empty results
+        score = grade_task(task_name, [])
+        assert 0.0 < score < 1.0, f"{task_name} empty-results score {score} out of bounds"
     print("PASS: test_grader_bounds")
 
 

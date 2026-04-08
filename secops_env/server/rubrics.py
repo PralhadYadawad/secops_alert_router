@@ -62,9 +62,13 @@ class SecOpsTriageRubric(ExponentialDiscountingTrajectoryRubric):
             trajectory: List of (action, observation) tuples.
 
         Returns:
-            Terminal reward from the final observation.
+            Normalized score strictly in (0, 1). Maps raw reward from
+            [-50, +12] to (0.01, 0.99) range.
         """
         if not trajectory:
-            return 0.0
+            return 0.01
         _, final_obs = trajectory[-1]
-        return getattr(final_obs, "reward", 0.0)
+        raw = getattr(final_obs, "reward", 0.0)
+        # Normalize from raw reward range [-50, +12] to (0, 1)
+        normalized = (raw - (-50.0)) / (12.0 - (-50.0))
+        return max(0.01, min(0.99, normalized))
