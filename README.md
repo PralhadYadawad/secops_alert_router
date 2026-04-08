@@ -1,12 +1,15 @@
 ---
-title: Secops Alert Router
-emoji: 🌖
-colorFrom: green
-colorTo: pink
+title: SecOps Alert Router V1
+emoji: 🛡️
+colorFrom: red
+colorTo: blue
 sdk: docker
+app_port: 8000
 pinned: false
 license: bsd-3-clause
-short_description: SOC Alert triage RL Environment
+short_description: SOC Alert Triage RL Environment
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# SecOps Alert Router V1
+
+Cybersecurity SOC Alert Triage RL Environment built on OpenEnv.
