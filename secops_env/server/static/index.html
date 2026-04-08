@@ -1086,6 +1086,24 @@ function selectTask(btn) {
   log('SYS', `Task set to <strong>${selectedTask}</strong>`, 'tag-info');
 }
 
+// --- Parse API response into flat obs ---
+function parseResponse(raw) {
+  // API returns {observation: {...}, reward, done} — flatten it
+  if (raw.observation) {
+    return {
+      alert_type: raw.observation.alert_type,
+      severity: raw.observation.severity,
+      confidence_score: raw.observation.confidence_score || 0,
+      time_steps_elapsed: raw.observation.time_steps_elapsed || 0,
+      evidence_flags: raw.observation.evidence_flags || [false,false,false,false],
+      reward: raw.reward || 0,
+      done: raw.done || false,
+    };
+  }
+  // Fallback if flat
+  return raw;
+}
+
 // --- Update UI from observation ---
 function updateUI(obs) {
   currentObs = obs;
@@ -1094,11 +1112,11 @@ function updateUI(obs) {
   document.getElementById('alertDetails').style.display = 'block';
 
   // Alert type
-  const typeName = obs.metadata?.alert_type_name || ALERT_TYPES[obs.alert_type] || 'Unknown';
+  const typeName = ALERT_TYPES[obs.alert_type] || 'Unknown';
   document.getElementById('alertTypeDisplay').textContent = typeName;
 
   // Severity
-  const sevName = obs.metadata?.severity_name || SEVERITY_NAMES[obs.severity] || 'Unknown';
+  const sevName = SEVERITY_NAMES[obs.severity] || 'Unknown';
   const badge = document.getElementById('severityBadge');
   badge.textContent = sevName.toUpperCase();
   badge.className = 'alert-badge ' + SEVERITY_CLASSES[obs.severity];
@@ -1142,7 +1160,14 @@ function updateUI(obs) {
 }
 
 function showOutcome(obs) {
-  const status = obs.metadata?.status || 'unknown';
+  // Infer outcome from reward since API doesn't return metadata
+  let status = 'unknown';
+  if (obs.reward >= 10) status = obs.reward >= 12 ? 'true_positive_fast' : 'true_positive';
+  else if (obs.reward === 1 || obs.reward === 1.0) status = 'true_negative';
+  else if (obs.reward === -10) status = 'false_positive';
+  else if (obs.reward === -50) status = obs.time_steps_elapsed >= 5 ? 'timeout_breach' : 'false_negative';
+  else if (obs.reward === -5) status = 'procedure_violation';
+
   const el = document.getElementById('outcomeDisplay');
 
   const outcomes = {
@@ -1153,9 +1178,10 @@ function showOutcome(obs) {
     'false_negative': { text: 'FALSE NEGATIVE', cls: 'failure', msg: 'BREACH! Threat was missed' },
     'timeout_breach': { text: 'TIMEOUT BREACH', cls: 'failure', msg: 'Failed to respond in time' },
     'timeout_benign': { text: 'TIMEOUT OK', cls: 'neutral', msg: 'Benign alert timed out safely' },
+    'procedure_violation': { text: 'VIOLATION', cls: 'failure', msg: 'Containment attempted without evidence' },
   };
 
-  const o = outcomes[status] || { text: status.toUpperCase(), cls: 'neutral', msg: '' };
+  const o = outcomes[status] || { text: 'EPISODE END', cls: 'neutral', msg: `Reward: ${obs.reward}` };
   el.textContent = o.text;
   el.className = 'outcome-display show ' + o.cls;
 
@@ -1173,7 +1199,7 @@ function addEpisodeLog(obs, status, isSuccess) {
   const list = document.getElementById('episodeList');
   if (episodeCount === 1) list.innerHTML = '';
 
-  const typeName = obs.metadata?.alert_type_name || ALERT_TYPES[obs.alert_type];
+  const typeName = ALERT_TYPES[obs.alert_type] || 'Unknown';
   const rewClass = obs.reward >= 0 ? 'positive' : 'negative';
 
   list.innerHTML = `
@@ -1203,19 +1229,20 @@ async function resetEnv() {
     const res = await fetch(BASE + '/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task_name: selectedTask })
+      body: JSON.stringify({})
     });
 
     if (!res.ok) throw new Error('Reset failed: ' + res.status);
 
-    const obs = await res.json();
+    const raw = await res.json();
+    const obs = parseResponse(raw);
     episodeActive = true;
     episodeCount++;
 
     updateUI(obs);
 
-    const typeName = obs.metadata?.alert_type_name || ALERT_TYPES[obs.alert_type];
-    const sevName = obs.metadata?.severity_name || SEVERITY_NAMES[obs.severity];
+    const typeName = ALERT_TYPES[obs.alert_type] || 'Unknown';
+    const sevName = SEVERITY_NAMES[obs.severity] || 'Unknown';
     log('RESET', `New alert: <strong>${typeName}</strong> [${sevName}]`, 'tag-info');
 
     notify('New alert generated', 'success');
@@ -1235,21 +1262,18 @@ async function doAction(actionId) {
     const res = await fetch(BASE + '/step', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action_id: actionId })
+      body: JSON.stringify({ action: { action_id: actionId } })
     });
 
     if (!res.ok) throw new Error('Step failed: ' + res.status);
 
-    const obs = await res.json();
+    const raw = await res.json();
+    const obs = parseResponse(raw);
 
     // Log
     const actionName = ACTION_NAMES[actionId];
     log('ACTION', `<strong>${actionName}</strong>`, 'tag-action');
     log('REWARD', `${obs.reward >= 0 ? '+' : ''}${obs.reward.toFixed(1)}`, obs.reward >= 0 ? 'tag-action' : 'tag-error');
-
-    if (obs.metadata?.last_action_error) {
-      log('WARN', obs.metadata.last_action_error, 'tag-error');
-    }
 
     stepRewards.push(obs.reward);
 
