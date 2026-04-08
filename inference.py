@@ -239,7 +239,7 @@ def run_inference():
             success_str = "true" if success else "false"
             print(
                 f"[END] success={success_str} steps={step_num} "
-                f"score={task_score:.2f} rewards={rewards_str}"
+                f"score={task_score:.3f} rewards={rewards_str}"
             )
 
 
