@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecOps Alert Router V1</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --cyan: #00f0ff;
+  --green: #00ff88;
+  --red: #ff003c;
+  --orange: #ff8800;
+  --purple: #a855f7;
+  --bg: #06060e;
+  --card: #0c0c1a;
+  --border: #1a1a3e;
+  --text: #c8c8e0;
+  --dim: #5a5a7a;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Animated background grid */
+.bg-grid {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-image:
+    linear-gradient(rgba(0,240,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+  z-index: 0;
+  animation: gridScroll 20s linear infinite;
+}
+
+@keyframes gridScroll {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(50px, 50px); }
+}
+
+/* Scan line overlay */
+.scanline {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,240,255,0.008) 2px,
+    rgba(0,240,255,0.008) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.scan-beam {
+  position: fixed;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(180deg, transparent, rgba(0,240,255,0.04), transparent);
+  animation: scanBeam 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 999;
+}
+
+@keyframes scanBeam {
+  0% { top: -200px; }
+  100% { top: 120%; }
+}
+
+/* Layout */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 30px 0 20px;
+  position: relative;
+}
+
+.header h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, var(--cyan), var(--green));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 40px rgba(0,240,255,0.3);
+  margin-bottom: 6px;
+}
+
+.header .subtitle {
+  font-size: 0.75rem;
+  color: var(--dim);
+  letter-spacing: 6px;
+  text-transform: uppercase;
+}
+
+.status-bar {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 15px;
+  font-size: 0.7rem;
+  color: var(--dim);
+}
+
+.status-bar .dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.dot.cyan { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Cards */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: 0.5;
+}
+
+.card-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  font-size: 0.9rem;
+}
+
+/* Main grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr 280px;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+/* Alert Panel */
+.alert-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.alert-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.severity-critical {
+  background: rgba(255,0,60,0.15);
+  border: 1px solid rgba(255,0,60,0.4);
+  color: var(--red);
+}
+
+.severity-high {
+  background: rgba(255,136,0,0.15);
+  border: 1px solid rgba(255,136,0,0.4);
+  color: var(--orange);
+}
+
+.severity-medium {
+  background: rgba(0,240,255,0.1);
+  border: 1px solid rgba(0,240,255,0.3);
+  color: var(--cyan);
+}
+
+.alert-type-display {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 8px 0;
+}
+
+.alert-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.meta-item {
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+
+.meta-item .label {
+  font-size: 0.55rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.meta-item .value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.meta-item .value.cyan { color: var(--cyan); }
+.meta-item .value.green { color: var(--green); }
+.meta-item .value.orange { color: var(--orange); }
+
+/* Confidence bar */
+.confidence-bar-container {
+  margin-top: 10px;
+}
+
+.confidence-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.confidence-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(0,240,255,0.4);
+}
+
+/* Evidence grid */
+.evidence-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.evidence-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.3);
+  font-size: 0.65rem;
+  border: 1px solid transparent;
+  transition: all 0.3s;
+}
+
+.evidence-item.collected {
+  border-color: rgba(0,255,136,0.3);
+  background: rgba(0,255,136,0.08);
+  color: var(--green);
+}
+
+.evidence-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex-shrink: 0;
+}
+
+.evidence-item.collected .evidence-dot {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+/* Center Panel — Actions */
+.center-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.action-btn {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 12px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.action-btn:hover:not(:disabled) {
+  border-color: var(--cyan);
+  background: rgba(0,240,255,0.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,240,255,0.1);
+}
+
+.action-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.action-btn .action-id {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  color: var(--dim);
+  margin-bottom: 4px;
+}
+
+.action-btn .action-name {
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.action-btn .action-desc {
+  font-size: 0.6rem;
+  color: var(--dim);
+  margin-top: 4px;
+}
+
+.action-btn.safe { border-left: 3px solid var(--cyan); }
+.action-btn.safe:hover:not(:disabled) { border-color: var(--cyan); }
+
+.action-btn.risky { border-left: 3px solid var(--orange); }
+.action-btn.risky:hover:not(:disabled) { border-color: var(--orange); box-shadow: 0 4px 20px rgba(255,136,0,0.1); }
+
+.action-btn.resolve { border-left: 3px solid var(--green); }
+.action-btn.resolve:hover:not(:disabled) { border-color: var(--green); box-shadow: 0 4px 20px rgba(0,255,136,0.1); }
+
+/* Control buttons */
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+.ctrl-btn {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all 0.3s;
+}
+
+.ctrl-btn.primary {
+  background: linear-gradient(135deg, rgba(0,240,255,0.15), rgba(0,255,136,0.15));
+  border-color: var(--cyan);
+}
+
+.ctrl-btn.primary:hover {
+  background: linear-gradient(135deg, rgba(0,240,255,0.25), rgba(0,255,136,0.25));
+  box-shadow: 0 0 20px rgba(0,240,255,0.2);
+}
+
+.ctrl-btn.danger {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.ctrl-btn.danger:hover {
+  background: rgba(255,0,60,0.1);
+}
+
+/* Terminal log */
+.terminal {
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 0.65rem;
+  line-height: 1.6;
+  max-height: 200px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.terminal::-webkit-scrollbar { width: 4px; }
+.terminal::-webkit-scrollbar-track { background: transparent; }
+.terminal::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.log-line { margin-bottom: 2px; }
+.log-line .timestamp { color: var(--dim); }
+.log-line .tag-info { color: var(--cyan); }
+.log-line .tag-action { color: var(--green); }
+.log-line .tag-reward { color: var(--orange); }
+.log-line .tag-error { color: var(--red); }
+.log-line .tag-done { color: var(--purple); }
+
+/* Right panel — Stats */
+.stats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.stat-row:last-child { border-bottom: none; }
+
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* Reward history chart */
+.reward-chart {
+  width: 100%;
+  height: 80px;
+  margin-top: 5px;
+  position: relative;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.reward-chart canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Outcome badge */
+.outcome-display {
+  text-align: center;
+  padding: 15px;
+  border-radius: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  display: none;
+}
+
+.outcome-display.show { display: block; }
+
+.outcome-display.success {
+  background: rgba(0,255,136,0.1);
+  border: 1px solid rgba(0,255,136,0.3);
+  color: var(--green);
+}
+
+.outcome-display.failure {
+  background: rgba(255,0,60,0.1);
+  border: 1px solid rgba(255,0,60,0.3);
+  color: var(--red);
+}
+
+.outcome-display.neutral {
+  background: rgba(0,240,255,0.1);
+  border: 1px solid rgba(0,240,255,0.3);
+  color: var(--cyan);
+}
+
+/* Episode history */
+.episode-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.episode-list::-webkit-scrollbar { width: 3px; }
+.episode-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.episode-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-bottom: 3px;
+  font-size: 0.65rem;
+  background: rgba(0,0,0,0.2);
+}
+
+.episode-item .ep-num { color: var(--dim); }
+.episode-item .ep-type { color: var(--text); flex: 1; margin: 0 8px; }
+.episode-item .ep-reward.positive { color: var(--green); }
+.episode-item .ep-reward.negative { color: var(--red); }
+
+/* Task selector */
+.task-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.task-btn {
+  flex: 1;
+  padding: 8px 4px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+
+.task-btn:hover { border-color: var(--cyan); color: var(--text); }
+.task-btn.active {
+  border-color: var(--cyan);
+  background: rgba(0,240,255,0.1);
+  color: var(--cyan);
+}
+
+/* Waiting / loading states */
+.waiting-overlay {
+  display: none;
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(6,6,14,0.85);
+  z-index: 10;
+  justify-content: center;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.waiting-overlay.show { display: flex; }
+
+.spinner {
+  width: 30px; height: 30px;
+  border: 2px solid var(--border);
+  border-top-color: var(--cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Notification */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  z-index: 2000;
+  transform: translateX(120%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notification.show { transform: translateX(0); }
+
+.notification.success {
+  background: rgba(0,255,136,0.15);
+  border: 1px solid var(--green);
+  color: var(--green);
+}
+
+.notification.error {
+  background: rgba(255,0,60,0.15);
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Glow keyframes */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 5px rgba(0,240,255,0.2); }
+  50% { box-shadow: 0 0 20px rgba(0,240,255,0.4); }
+}
+
+/* No-alert state */
+.no-alert {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--dim);
+  text-align: center;
+}
+
+.no-alert .shield {
+  font-size: 3rem;
+  margin-bottom: 15px;
+  opacity: 0.3;
+}
+
+.no-alert p {
+  font-size: 0.75rem;
+  margin-top: 8px;
+}
+
+/* Particles */
+.particles {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--cyan);
+  border-radius: 50%;
+  opacity: 0;
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0% { opacity: 0; transform: translateY(100vh); }
+  10% { opacity: 0.6; }
+  90% { opacity: 0.6; }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Reward flash */
+.reward-flash {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 3rem;
+  font-weight: 900;
+  z-index: 1500;
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.5s;
+}
+
+.reward-flash.show {
+  animation: flashReward 1.2s ease-out forwards;
+}
+
+@keyframes flashReward {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+}
+
+/* Task difficulty badges */
+.difficulty-easy { color: var(--green); }
+.difficulty-medium { color: var(--orange); }
+.difficulty-hard { color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="scanline"></div>
+<div class="scan-beam"></div>
+<div class="particles" id="particles"></div>
+
+<div class="notification" id="notification"></div>
+<div class="reward-flash" id="rewardFlash"></div>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>SECOPS ALERT ROUTER</h1>
+    <div class="subtitle">Cybersecurity Incident Triage RL Environment</div>
+    <div class="status-bar">
+      <span><span class="dot green"></span>ENVIRONMENT ONLINE</span>
+      <span><span class="dot cyan"></span>OPENENV v1</span>
+      <span id="connectionStatus"><span class="dot green"></span>CONNECTED</span>
+    </div>
+  </div>
+
+  <!-- Task Selector -->
+  <div class="task-selector">
+    <button class="task-btn active" data-task="benign-filter" onclick="selectTask(this)">
+      <span class="difficulty-easy">EASY</span> benign-filter
+    </button>
+    <button class="task-btn" data-task="mixed-triage" onclick="selectTask(this)">
+      <span class="difficulty-medium">MED</span> mixed-triage
+    </button>
+    <button class="task-btn" data-task="critical-escalation" onclick="selectTask(this)">
+      <span class="difficulty-hard">HARD</span> critical-escalation
+    </button>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+
+    <!-- LEFT — Alert Info -->
+    <div class="alert-panel">
+      <div class="card" id="alertCard">
+        <div class="card-title"><span class="icon">&#9888;</span> INCOMING ALERT</div>
+
+        <div id="alertContent" class="no-alert">
+          <div class="shield">&#128737;</div>
+          <strong>NO ACTIVE ALERT</strong>
+          <p>Press RESET to generate a new alert</p>
+        </div>
+
+        <div id="alertDetails" style="display:none">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span class="alert-badge" id="severityBadge">CRITICAL</span>
+            <span style="font-size:0.65rem;color:var(--dim)" id="alertId">ALT-0001</span>
+          </div>
+          <div class="alert-type-display" id="alertTypeDisplay">Phishing</div>
+
+          <div class="alert-meta">
+            <div class="meta-item">
+              <div class="label">Confidence</div>
+              <div class="value cyan" id="confidenceValue">0.00</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Steps Left</div>
+              <div class="value orange" id="stepsLeft">5</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Reward</div>
+              <div class="value green" id="currentReward">0.00</div>
+            </div>
+            <div class="meta-item">
+              <div class="label">Step</div>
+              <div class="value" id="currentStep">0</div>
+            </div>
+          </div>
+
+          <div class="confidence-bar-container">
+            <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--dim);">
+              <span>CONFIDENCE</span>
+              <span id="confidencePercent">0%</span>
+            </div>
+            <div class="confidence-bar-bg">
+              <div class="confidence-bar-fill" id="confidenceBar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#128269;</span> EVIDENCE COLLECTED</div>
+        <div class="evidence-grid" id="evidenceGrid">
+          <div class="evidence-item" data-idx="0">
+            <span class="evidence-dot"></span> Headers
+          </div>
+          <div class="evidence-item" data-idx="1">
+            <span class="evidence-dot"></span> Logs
+          </div>
+          <div class="evidence-item" data-idx="2">
+            <span class="evidence-dot"></span> Identity
+          </div>
+          <div class="evidence-item" data-idx="3">
+            <span class="evidence-dot"></span> Scope
+          </div>
+        </div>
+      </div>
+
+      <!-- Outcome -->
+      <div class="outcome-display" id="outcomeDisplay"></div>
+    </div>
+
+    <!-- CENTER — Actions + Terminal -->
+    <div class="center-panel">
+      <div class="card" style="position:relative">
+        <div class="card-title"><span class="icon">&#9889;</span> ACTIONS</div>
+        <div class="waiting-overlay" id="actionWaiting">
+          <div class="spinner"></div>
+        </div>
+
+        <div class="actions-grid" id="actionsGrid">
+          <button class="action-btn safe" data-action="0" onclick="doAction(0)">
+            <div class="action-id">ACT-00</div>
+            <div class="action-name">analyze_headers</div>
+            <div class="action-desc">Examine email/packet headers</div>
+          </button>
+          <button class="action-btn safe" data-action="1" onclick="doAction(1)">
+            <div class="action-id">ACT-01</div>
+            <div class="action-name">query_logs</div>
+            <div class="action-desc">Search SIEM logs</div>
+          </button>
+          <button class="action-btn safe" data-action="2" onclick="doAction(2)">
+            <div class="action-id">ACT-02</div>
+            <div class="action-name">verify_identity</div>
+            <div class="action-desc">Verify user/source identity</div>
+          </button>
+          <button class="action-btn safe" data-action="3" onclick="doAction(3)">
+            <div class="action-id">ACT-03</div>
+            <div class="action-name">scope_environment</div>
+            <div class="action-desc">Assess affected systems</div>
+          </button>
+          <button class="action-btn risky" data-action="4" onclick="doAction(4)">
+            <div class="action-id">ACT-04</div>
+            <div class="action-name">block_ip</div>
+            <div class="action-desc">Block source IP address</div>
+          </button>
+          <button class="action-btn risky" data-action="5" onclick="doAction(5)">
+            <div class="action-id">ACT-05</div>
+            <div class="action-name">isolate_host</div>
+            <div class="action-desc">Isolate host from network</div>
+          </button>
+          <button class="action-btn risky" data-action="6" onclick="doAction(6)">
+            <div class="action-id">ACT-06</div>
+            <div class="action-name">disable_account</div>
+            <div class="action-desc">Disable compromised account</div>
+          </button>
+          <button class="action-btn resolve" data-action="7" onclick="doAction(7)">
+            <div class="action-id">ACT-07</div>
+            <div class="action-name">acknowledge_allow</div>
+            <div class="action-desc">Mark as benign, no action</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="ctrl-btn primary" onclick="resetEnv()">&#9654; RESET</button>
+        <button class="ctrl-btn" onclick="autoRun()">&#9881; AUTO-RUN</button>
+        <button class="ctrl-btn danger" onclick="clearAll()">&#10005; CLEAR</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#9002;</span> TERMINAL</div>
+        <div class="terminal" id="terminal">
+          <div class="log-line"><span class="timestamp">[SYS]</span> <span class="tag-info">SecOps Alert Router V1 initialized</span></div>
+          <div class="log-line"><span class="timestamp">[SYS]</span> <span class="tag-info">Press RESET to begin episode</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT — Stats -->
+    <div class="stats-panel">
+      <div class="card">
+        <div class="card-title"><span class="icon">&#128200;</span> SESSION STATS</div>
+        <div class="stat-row">
+          <span class="stat-label">Episodes</span>
+          <span class="stat-value" id="statEpisodes" style="color:var(--cyan)">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Total Reward</span>
+          <span class="stat-value" id="statTotalReward" style="color:var(--green)">0.00</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Avg Reward</span>
+          <span class="stat-value" id="statAvgReward" style="color:var(--orange)">0.00</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Success Rate</span>
+          <span class="stat-value" id="statSuccessRate" style="color:var(--green)">--</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Avg Steps</span>
+          <span class="stat-value" id="statAvgSteps" style="color:var(--cyan)">--</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#128202;</span> REWARD HISTORY</div>
+        <div class="reward-chart">
+          <canvas id="rewardCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="icon">&#128218;</span> EPISODE LOG</div>
+        <div class="episode-list" id="episodeList">
+          <div style="text-align:center;color:var(--dim);font-size:0.65rem;padding:20px;">
+            No episodes yet
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- State ---
+const BASE = window.location.origin;
+let currentObs = null;
+let episodeActive = false;
+let episodeCount = 0;
+let totalReward = 0;
+let totalSteps = 0;
+let successes = 0;
+let rewardHistory = [];
+let stepRewards = [];
+let alertCounter = 0;
+let selectedTask = 'benign-filter';
+let autoRunning = false;
+
+const ALERT_TYPES = ['Phishing', 'PrivilegeAbuse', 'Malware', 'DDoS', 'DataExfil'];
+const SEVERITY_NAMES = ['Medium', 'High', 'Critical'];
+const SEVERITY_CLASSES = ['severity-medium', 'severity-high', 'severity-critical'];
+const ACTION_NAMES = [
+  'analyze_headers', 'query_logs', 'verify_identity', 'scope_environment',
+  'block_ip', 'isolate_host', 'disable_account', 'acknowledge_allow'
+];
+
+// --- Particles ---
+function createParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDelay = Math.random() * 6 + 's';
+    p.style.animationDuration = (4 + Math.random() * 4) + 's';
+    container.appendChild(p);
+  }
+}
+createParticles();
+
+// --- Notifications ---
+function notify(msg, type = 'success') {
+  const n = document.getElementById('notification');
+  n.textContent = msg;
+  n.className = 'notification ' + type + ' show';
+  setTimeout(() => n.classList.remove('show'), 3000);
+}
+
+// --- Terminal ---
+function log(tag, msg, cls = 'tag-info') {
+  const t = document.getElementById('terminal');
+  const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+  t.innerHTML += `<div class="log-line"><span class="timestamp">[${time}]</span> <span class="${cls}">[${tag}]</span> ${msg}</div>`;
+  t.scrollTop = t.scrollHeight;
+}
+
+// --- Reward flash ---
+function flashReward(value) {
+  const el = document.getElementById('rewardFlash');
+  el.textContent = (value >= 0 ? '+' : '') + value.toFixed(1);
+  el.style.color = value >= 0 ? 'var(--green)' : 'var(--red)';
+  el.className = 'reward-flash show';
+  setTimeout(() => el.className = 'reward-flash', 1200);
+}
+
+// --- Chart ---
+function drawChart() {
+  const canvas = document.getElementById('rewardCanvas');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * 2;
+  canvas.height = rect.height * 2;
+  ctx.scale(2, 2);
+
+  const w = rect.width;
+  const h = rect.height;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (rewardHistory.length < 2) return;
+
+  const max = Math.max(...rewardHistory, 1);
+  const min = Math.min(...rewardHistory, -1);
+  const range = max - min || 1;
+
+  // Zero line
+  const zeroY = h - ((0 - min) / range) * (h - 20) - 10;
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, zeroY);
+  ctx.lineTo(w, zeroY);
+  ctx.stroke();
+
+  // Gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(0,255,136,0.3)');
+  grad.addColorStop(0.5, 'rgba(0,240,255,0.05)');
+  grad.addColorStop(1, 'rgba(255,0,60,0.3)');
+
+  // Line
+  ctx.strokeStyle = 'var(--cyan)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+
+  const points = [];
+  rewardHistory.forEach((r, i) => {
+    const x = (i / (rewardHistory.length - 1)) * w;
+    const y = h - ((r - min) / range) * (h - 20) - 10;
+    points.push({ x, y });
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under
+  ctx.lineTo(w, h);
+  ctx.lineTo(0, h);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Dots
+  points.forEach((p, i) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = rewardHistory[i] >= 0 ? '#00ff88' : '#ff003c';
+    ctx.fill();
+  });
+}
+
+// --- Task selector ---
+function selectTask(btn) {
+  document.querySelectorAll('.task-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedTask = btn.dataset.task;
+  log('SYS', `Task set to <strong>${selectedTask}</strong>`, 'tag-info');
+}
+
+// --- Update UI from observation ---
+function updateUI(obs) {
+  currentObs = obs;
+
+  document.getElementById('alertContent').style.display = 'none';
+  document.getElementById('alertDetails').style.display = 'block';
+
+  // Alert type
+  const typeName = obs.metadata?.alert_type_name || ALERT_TYPES[obs.alert_type] || 'Unknown';
+  document.getElementById('alertTypeDisplay').textContent = typeName;
+
+  // Severity
+  const sevName = obs.metadata?.severity_name || SEVERITY_NAMES[obs.severity] || 'Unknown';
+  const badge = document.getElementById('severityBadge');
+  badge.textContent = sevName.toUpperCase();
+  badge.className = 'alert-badge ' + SEVERITY_CLASSES[obs.severity];
+
+  // Alert ID
+  alertCounter++;
+  document.getElementById('alertId').textContent = 'ALT-' + String(alertCounter).padStart(4, '0');
+
+  // Meta values
+  document.getElementById('confidenceValue').textContent = obs.confidence_score.toFixed(2);
+  const maxSteps = 5;
+  document.getElementById('stepsLeft').textContent = Math.max(0, maxSteps - obs.time_steps_elapsed);
+  document.getElementById('currentReward').textContent = obs.reward.toFixed(2);
+  document.getElementById('currentStep').textContent = obs.time_steps_elapsed;
+
+  // Confidence bar
+  const pct = Math.round(obs.confidence_score * 100);
+  document.getElementById('confidencePercent').textContent = pct + '%';
+  document.getElementById('confidenceBar').style.width = pct + '%';
+
+  // Evidence
+  const items = document.querySelectorAll('.evidence-item');
+  obs.evidence_flags.forEach((flag, i) => {
+    items[i].classList.toggle('collected', flag);
+  });
+
+  // Reward color
+  const rewEl = document.getElementById('currentReward');
+  rewEl.style.color = obs.reward >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Action buttons
+  const btns = document.querySelectorAll('.action-btn');
+  btns.forEach(btn => btn.disabled = !episodeActive);
+
+  // Outcome
+  if (obs.done) {
+    episodeActive = false;
+    btns.forEach(btn => btn.disabled = true);
+    showOutcome(obs);
+  }
+}
+
+function showOutcome(obs) {
+  const status = obs.metadata?.status || 'unknown';
+  const el = document.getElementById('outcomeDisplay');
+
+  const outcomes = {
+    'true_positive': { text: 'TRUE POSITIVE', cls: 'success', msg: 'Threat contained successfully' },
+    'true_positive_fast': { text: 'FAST CONTAINMENT', cls: 'success', msg: 'Critical threat neutralized rapidly!' },
+    'true_negative': { text: 'TRUE NEGATIVE', cls: 'success', msg: 'Benign alert correctly resolved' },
+    'false_positive': { text: 'FALSE POSITIVE', cls: 'failure', msg: 'Unnecessary containment - business disrupted' },
+    'false_negative': { text: 'FALSE NEGATIVE', cls: 'failure', msg: 'BREACH! Threat was missed' },
+    'timeout_breach': { text: 'TIMEOUT BREACH', cls: 'failure', msg: 'Failed to respond in time' },
+    'timeout_benign': { text: 'TIMEOUT OK', cls: 'neutral', msg: 'Benign alert timed out safely' },
+  };
+
+  const o = outcomes[status] || { text: status.toUpperCase(), cls: 'neutral', msg: '' };
+  el.textContent = o.text;
+  el.className = 'outcome-display show ' + o.cls;
+
+  log('END', `${o.text} — ${o.msg}`, o.cls === 'failure' ? 'tag-error' : 'tag-done');
+
+  // Stats
+  const isSuccess = ['true_positive', 'true_positive_fast', 'true_negative', 'timeout_benign'].includes(status);
+  if (isSuccess) successes++;
+
+  // Episode log
+  addEpisodeLog(obs, status, isSuccess);
+}
+
+function addEpisodeLog(obs, status, isSuccess) {
+  const list = document.getElementById('episodeList');
+  if (episodeCount === 1) list.innerHTML = '';
+
+  const typeName = obs.metadata?.alert_type_name || ALERT_TYPES[obs.alert_type];
+  const rewClass = obs.reward >= 0 ? 'positive' : 'negative';
+
+  list.innerHTML = `
+    <div class="episode-item">
+      <span class="ep-num">#${episodeCount}</span>
+      <span class="ep-type">${typeName}</span>
+      <span class="ep-reward ${rewClass}">${obs.reward >= 0 ? '+' : ''}${obs.reward.toFixed(1)}</span>
+      <span style="margin-left:6px">${isSuccess ? '&#10003;' : '&#10007;'}</span>
+    </div>
+  ` + list.innerHTML;
+}
+
+function updateStats(finalReward, steps) {
+  document.getElementById('statEpisodes').textContent = episodeCount;
+  document.getElementById('statTotalReward').textContent = totalReward.toFixed(1);
+  document.getElementById('statAvgReward').textContent = (totalReward / episodeCount).toFixed(2);
+  document.getElementById('statSuccessRate').textContent = Math.round(successes / episodeCount * 100) + '%';
+  document.getElementById('statAvgSteps').textContent = (totalSteps / episodeCount).toFixed(1);
+}
+
+// --- API calls ---
+async function resetEnv() {
+  try {
+    document.getElementById('outcomeDisplay').className = 'outcome-display';
+    stepRewards = [];
+
+    const res = await fetch(BASE + '/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_name: selectedTask })
+    });
+
+    if (!res.ok) throw new Error('Reset failed: ' + res.status);
+
+    const obs = await res.json();
+    episodeActive = true;
+    episodeCount++;
+
+    updateUI(obs);
+
+    const typeName = obs.metadata?.alert_type_name || ALERT_TYPES[obs.alert_type];
+    const sevName = obs.metadata?.severity_name || SEVERITY_NAMES[obs.severity];
+    log('RESET', `New alert: <strong>${typeName}</strong> [${sevName}]`, 'tag-info');
+
+    notify('New alert generated', 'success');
+  } catch (e) {
+    log('ERROR', e.message, 'tag-error');
+    notify(e.message, 'error');
+  }
+}
+
+async function doAction(actionId) {
+  if (!episodeActive) return;
+
+  const overlay = document.getElementById('actionWaiting');
+  overlay.classList.add('show');
+
+  try {
+    const res = await fetch(BASE + '/step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_id: actionId })
+    });
+
+    if (!res.ok) throw new Error('Step failed: ' + res.status);
+
+    const obs = await res.json();
+
+    // Log
+    const actionName = ACTION_NAMES[actionId];
+    log('ACTION', `<strong>${actionName}</strong>`, 'tag-action');
+    log('REWARD', `${obs.reward >= 0 ? '+' : ''}${obs.reward.toFixed(1)}`, obs.reward >= 0 ? 'tag-action' : 'tag-error');
+
+    if (obs.metadata?.last_action_error) {
+      log('WARN', obs.metadata.last_action_error, 'tag-error');
+    }
+
+    stepRewards.push(obs.reward);
+
+    if (obs.done) {
+      totalReward += obs.reward;
+      totalSteps += obs.time_steps_elapsed;
+      rewardHistory.push(obs.reward);
+      updateStats(obs.reward, obs.time_steps_elapsed);
+      drawChart();
+    }
+
+    // Flash big reward on terminal actions
+    if (Math.abs(obs.reward) >= 5) flashReward(obs.reward);
+
+    updateUI(obs);
+  } catch (e) {
+    log('ERROR', e.message, 'tag-error');
+    notify(e.message, 'error');
+  } finally {
+    overlay.classList.remove('show');
+  }
+}
+
+// --- Auto run with heuristic ---
+async function autoRun() {
+  if (autoRunning) {
+    autoRunning = false;
+    return;
+  }
+
+  autoRunning = true;
+  notify('Auto-run started (5 episodes)', 'success');
+
+  for (let ep = 0; ep < 5 && autoRunning; ep++) {
+    await resetEnv();
+    await sleep(500);
+
+    let steps = 0;
+    while (episodeActive && steps < 10 && autoRunning) {
+      // Simple heuristic
+      const obs = currentObs;
+      let action;
+      const evidenceCount = obs.evidence_flags.filter(f => f).length;
+
+      if (evidenceCount === 0) {
+        action = 1; // query_logs
+      } else if (obs.severity === 2 && obs.confidence_score >= 0.15) {
+        action = 5; // isolate_host
+      } else if (evidenceCount < 2) {
+        action = obs.evidence_flags[0] ? (obs.evidence_flags[1] ? 2 : 1) : 0;
+      } else if (obs.confidence_score >= 0.3) {
+        action = 4; // block_ip
+      } else {
+        action = 7; // acknowledge
+      }
+
+      await doAction(action);
+      await sleep(600);
+      steps++;
+    }
+
+    await sleep(800);
+  }
+
+  autoRunning = false;
+  notify('Auto-run complete', 'success');
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function clearAll() {
+  episodeCount = 0;
+  totalReward = 0;
+  totalSteps = 0;
+  successes = 0;
+  rewardHistory = [];
+  alertCounter = 0;
+  episodeActive = false;
+  currentObs = null;
+
+  document.getElementById('alertContent').style.display = '';
+  document.getElementById('alertDetails').style.display = 'none';
+  document.getElementById('outcomeDisplay').className = 'outcome-display';
+  document.getElementById('terminal').innerHTML =
+    '<div class="log-line"><span class="timestamp">[SYS]</span> <span class="tag-info">Session cleared</span></div>';
+  document.getElementById('episodeList').innerHTML =
+    '<div style="text-align:center;color:var(--dim);font-size:0.65rem;padding:20px;">No episodes yet</div>';
+
+  document.querySelectorAll('.evidence-item').forEach(e => e.classList.remove('collected'));
+  document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+
+  ['statEpisodes','statTotalReward','statAvgReward'].forEach(id => document.getElementById(id).textContent = '0');
+  ['statSuccessRate','statAvgSteps'].forEach(id => document.getElementById(id).textContent = '--');
+
+  const canvas = document.getElementById('rewardCanvas');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+  notify('Session cleared', 'success');
+}
+
+// Disable action buttons initially
+document.querySelectorAll('.action-btn').forEach(b => b.disabled = true);
+
+// Resize chart on window resize
+window.addEventListener('resize', drawChart);
+</script>
+</body>
+</html>
