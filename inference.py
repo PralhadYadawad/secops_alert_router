@@ -209,7 +209,7 @@ def run_inference():
 
                 done_str = "true" if obs.done else "false"
                 print(
-                    f"[STEP]  step={step_num} action={action_name} "
+                    f"[STEP] step={step_num} action={action_name} "
                     f"reward={normalized:.2f} done={done_str} error={error_str}"
                 )
 
@@ -238,7 +238,7 @@ def run_inference():
             rewards_str = ",".join(f"{r:.2f}" for r in step_rewards)
             success_str = "true" if success else "false"
             print(
-                f"[END]   success={success_str} steps={step_num} "
+                f"[END] success={success_str} steps={step_num} "
                 f"score={task_score:.2f} rewards={rewards_str}"
             )
 
