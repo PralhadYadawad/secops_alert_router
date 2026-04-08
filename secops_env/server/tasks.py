@@ -67,4 +67,5 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
     else:
         score = accuracy
 
-    return max(0.0, min(1.0, score))
+    # Validator requires strictly (0, 1) — never exactly 0.0 or 1.0
+    return max(0.01, min(0.99, score))

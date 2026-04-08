@@ -38,9 +38,9 @@ MAX_REWARD = 12.0
 
 
 def normalize_reward(raw_reward: float) -> float:
-    """Map raw reward from [-50, +12] to [0.0, 1.0], clamped."""
+    """Map raw reward from [-50, +12] to (0, 1), strictly exclusive."""
     normalized = (raw_reward - MIN_REWARD) / (MAX_REWARD - MIN_REWARD)
-    return max(0.0, min(1.0, normalized))
+    return max(0.01, min(0.99, normalized))
 
 
 # ---------------------------------------------------------------------------
