@@ -1,7 +1,7 @@
-"""SecOps-specific rubrics for reward computation.
+"""Trajectory rubric for SecOps Alert Router V2.
 
-Provides SecOpsTriageRubric that extends ExponentialDiscountingTrajectoryRubric
-for temporally-discounted rewards in security triage episodes.
+Normalizes cumulative episode reward to the (0.01, 0.99) range
+required by the OpenEnv evaluator.
 """
 
 from typing import Any, List, Tuple
@@ -38,37 +38,35 @@ except ModuleNotFoundError:
             ]
 
 
+# V2 reward range: worst = -50 (missed critical), best = +20 (perfect fast containment)
+MIN_RAW_REWARD = -50.0
+MAX_RAW_REWARD = 20.0
+
+
 class SecOpsTriageRubric(ExponentialDiscountingTrajectoryRubric):
-    """Score triage episode with temporal discounting.
+    """Score triage trajectory with temporal discounting.
 
-    Uses gamma=0.95 (higher than chess default) because episodes are short (1-5 steps).
-    The environment computes rewards directly; this rubric provides trajectory-level
-    credit assignment for training infrastructure.
-
-    Terminal rewards (from environment):
-    - True Positive: +10 (or +12 with speed bonus)
-    - False Positive: -10
-    - True Negative: +1
-    - False Negative: -50
+    Uses gamma=0.95 for short episodes (1-15 steps). Maps cumulative
+    reward from [-50, +20] to (0.01, 0.99).
     """
 
     def __init__(self, gamma: float = 0.95):
         super().__init__(gamma=gamma)
 
     def score_trajectory(self, trajectory: List[Tuple[Any, Any]]) -> float:
-        """Score based on episode outcome from final observation.
-
-        Args:
-            trajectory: List of (action, observation) tuples.
+        """Score based on cumulative reward from the trajectory.
 
         Returns:
-            Normalized score strictly in (0, 1). Maps raw reward from
-            [-50, +12] to (0.01, 0.99) range.
+            Normalized score strictly in (0, 1).
         """
         if not trajectory:
             return 0.01
+
         _, final_obs = trajectory[-1]
-        raw = getattr(final_obs, "reward", 0.0)
-        # Normalize from raw reward range [-50, +12] to (0, 1)
-        normalized = (raw - (-50.0)) / (12.0 - (-50.0))
+
+        # Try cumulative reward from metadata first, fall back to final reward
+        cumulative = getattr(final_obs, "metadata", {}).get("cumulative_reward", None)
+        raw = cumulative if cumulative is not None else getattr(final_obs, "reward", 0.0)
+
+        normalized = (raw - MIN_RAW_REWARD) / (MAX_RAW_REWARD - MIN_RAW_REWARD)
         return max(0.01, min(0.99, normalized))

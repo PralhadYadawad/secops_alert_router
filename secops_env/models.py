@@ -1,105 +1,95 @@
-"""Pydantic data models for the SecOps Alert Router environment."""
+"""Pydantic data models for the SecOps Alert Router V2 environment."""
 
 from openenv.core.env_server import Action, Observation, State
 from pydantic import Field
-from typing import List
+from typing import List, Dict, Any, Optional
 
 
 class SecOpsAction(Action):
-    """Action for SecOps Alert Router environment.
+    """Action for SecOps Alert Router V2 environment.
 
     Attributes:
-        action_id: Discrete action index (0-7) mapping to triage decisions.
-            Safe: 0=analyze_headers, 1=query_logs, 2=verify_identity, 3=scope_environment.
-            Risky: 4=block_ip, 5=isolate_host, 6=disable_account.
-            Resolve: 7=acknowledge_allow.
+        action_id: Discrete action index (0-10) mapping to triage decisions.
+            Investigation: 0=analyze_headers, 1=query_siem, 2=check_reputation,
+                3=check_asset, 4=analyze_payload, 5=correlate_alerts.
+            Containment: 6=block_source, 7=isolate_host, 8=disable_account.
+            Other: 9=escalate, 10=resolve_benign.
     """
 
     action_id: int = Field(
         ge=0,
-        le=7,
+        le=10,
         description=(
-            "Discrete action index (0-7). Safe: 0=analyze_headers, 1=query_logs, "
-            "2=verify_identity, 3=scope_environment. Risky: 4=block_ip, "
-            "5=isolate_host, 6=disable_account. Resolve: 7=acknowledge_allow"
+            "Discrete action index (0-10). "
+            "Investigation: 0=analyze_headers, 1=query_siem, 2=check_reputation, "
+            "3=check_asset, 4=analyze_payload, 5=correlate_alerts. "
+            "Containment: 6=block_source, 7=isolate_host, 8=disable_account. "
+            "Other: 9=escalate, 10=resolve_benign"
         ),
     )
 
 
 class SecOpsObservation(Observation):
-    """Observation for SecOps Alert Router environment.
+    """Rich observation for SecOps Alert Router V2.
 
-    Attributes:
-        alert_type: Alert category (0-4): 0=Phishing, 1=PrivilegeAbuse,
-            2=Malware, 3=DDoS, 4=DataExfil.
-        severity: Severity level (0-2): 0=Medium, 1=High, 2=Critical.
-        confidence_score: ML model confidence score in the range [0.0, 1.0].
-        time_steps_elapsed: Number of environment steps taken so far.
-        evidence_flags: Boolean flags indicating which evidence sources have
-            been collected (4 sources).
-        done: Whether the episode is finished (inherited from Observation).
-        reward: Reward signal for the last action (inherited from Observation).
-        metadata: Additional metadata dict (inherited from Observation).
+    Contains the full alert context visible on reset plus accumulated
+    investigation results as the agent investigates.
     """
 
-    alert_type: int = Field(
-        default=0,
-        description="Alert category (0-4): 0=Phishing, 1=PrivilegeAbuse, 2=Malware, 3=DDoS, 4=DataExfil",
+    # Alert context (visible from reset)
+    alert_id: str = Field(default="", description="Unique alert identifier")
+    rule_triggered: str = Field(default="", description="Detection rule that fired")
+    severity: str = Field(default="medium", description="Alert severity: medium, high, critical")
+    alert_description: str = Field(default="", description="Human-readable alert description")
+    mitre_tactic: str = Field(default="", description="MITRE ATT&CK tactic")
+    mitre_technique: str = Field(default="", description="MITRE ATT&CK technique ID and name")
+    source_ip: str = Field(default="", description="Source IP address")
+    source_domain: str = Field(default="", description="Source domain if applicable")
+    target_host: str = Field(default="", description="Target hostname")
+    target_user: str = Field(default="", description="Target username")
+    target_department: str = Field(default="", description="Target user department")
+    raw_log_snippet: str = Field(default="", description="Raw log/email snippet from the alert")
+
+    # Investigation results (grows as agent investigates)
+    investigation_history: List[Dict[str, str]] = Field(
+        default_factory=list,
+        description="List of investigation results from actions taken",
     )
-    severity: int = Field(
-        default=0,
-        description="Severity level (0-2): 0=Medium, 1=High, 2=Critical",
-    )
-    confidence_score: float = Field(
-        default=0.0,
-        description="ML model confidence score in the range [0.0, 1.0]",
-    )
-    time_steps_elapsed: int = Field(
-        default=0,
-        description="Number of environment steps taken so far",
-    )
-    evidence_flags: List[bool] = Field(
-        default_factory=lambda: [False, False, False, False],
-        description="Boolean flags for 4 evidence sources collected",
+
+    # State tracking
+    time_steps_elapsed: int = Field(default=0, description="Steps taken so far")
+    max_steps: int = Field(default=10, description="Maximum steps per episode")
+    actions_taken: List[str] = Field(
+        default_factory=list,
+        description="Names of actions already taken this episode",
     )
 
 
 class SecOpsState(State):
-    """Internal state for SecOps Alert Router environment.
+    """Internal state for SecOps Alert Router V2.
 
-    Attributes:
-        alert_type: Alert category (0-4): 0=Phishing, 1=PrivilegeAbuse,
-            2=Malware, 3=DDoS, 4=DataExfil.
-        severity: Severity level (0-2): 0=Medium, 1=High, 2=Critical.
-        is_true_threat: Ground-truth label indicating if the alert is a real threat.
-        confidence_score: ML model confidence score in the range [0.0, 1.0].
-        evidence_collected: List of evidence source names that have been gathered.
-        max_steps: Maximum number of steps allowed per episode.
-        episode_id: Unique episode identifier (inherited from State).
-        step_count: Current step within the episode (inherited from State).
+    Tracks the full episode state including scenario reference,
+    investigation history, and accumulated rewards.
     """
 
-    alert_type: int = Field(
-        default=0,
-        description="Alert category (0-4): 0=Phishing, 1=PrivilegeAbuse, 2=Malware, 3=DDoS, 4=DataExfil",
-    )
-    severity: int = Field(
-        default=0,
-        description="Severity level (0-2): 0=Medium, 1=High, 2=Critical",
-    )
-    is_true_threat: bool = Field(
-        default=False,
-        description="Ground-truth label indicating if the alert is a real threat",
-    )
-    confidence_score: float = Field(
-        default=0.0,
-        description="ML model confidence score in the range [0.0, 1.0]",
-    )
-    evidence_collected: List[str] = Field(
+    alert_type: str = Field(default="", description="Alert category")
+    severity: str = Field(default="medium", description="Alert severity")
+    is_true_threat: bool = Field(default=False, description="Ground truth")
+    scenario_id: str = Field(default="", description="ID of the loaded scenario")
+    max_steps: int = Field(default=10, description="Max steps this episode")
+    actions_taken: List[str] = Field(
         default_factory=list,
-        description="List of evidence source names that have been gathered",
+        description="Names of actions taken so far",
     )
-    max_steps: int = Field(
-        default=5,
-        description="Maximum number of steps allowed per episode",
+    investigation_count: int = Field(
+        default=0,
+        description="Number of investigation actions completed",
+    )
+    cumulative_reward: float = Field(
+        default=0.0,
+        description="Running total of rewards this episode",
+    )
+    target_criticality: str = Field(
+        default="medium",
+        description="Business criticality of target asset",
     )

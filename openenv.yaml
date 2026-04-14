@@ -1,18 +1,27 @@
 spec_version: 1
 name: secops_env
-description: "Cybersecurity SOC Alert Triage — AI agent learns to investigate, contain, or resolve security alerts balancing speed vs accuracy"
+description: "Cybersecurity SOC Alert Triage V2 — AI agent investigates realistic MITRE ATT&CK-mapped alerts using SIEM logs, threat intel, and asset context to contain threats or dismiss false positives"
 type: space
 runtime: fastapi
 app: server.app:app
 port: 8000
 
 tasks:
-  - name: benign-filter
-    description: "Easy: Correctly identify and resolve benign medium-severity alerts"
+  - name: spam-filter
+    description: "Easy: Identify and dismiss obvious spam/false-positive alerts with clear indicators"
     difficulty: easy
-  - name: mixed-triage
-    description: "Medium: Triage mixed-severity alerts balancing investigation speed vs accuracy"
+  - name: phishing-triage
+    description: "Easy-Medium: Investigate phishing alerts with varying ambiguity levels"
+    difficulty: easy-medium
+  - name: insider-threat
+    description: "Medium: Distinguish legitimate employee behavior from insider threats"
     difficulty: medium
-  - name: critical-escalation
-    description: "Hard: Rapidly contain critical threats with minimal false positives under time pressure"
+  - name: lateral-movement
+    description: "Medium-Hard: Detect attackers moving through the network across multiple hosts"
+    difficulty: medium-hard
+  - name: apt-campaign
+    description: "Hard: Investigate multi-stage attacks requiring correlation across alerts and systems"
     difficulty: hard
+  - name: adversarial-evasion
+    description: "Expert: Detect adversaries using LOLBins, fileless malware, and encoded payloads"
+    difficulty: expert

@@ -1,114 +1,122 @@
-"""
-SecOps Alert Router — Inference Script
-Meta PyTorch OpenEnv Hackathon Submission
+"""SecOps Alert Router V2 — Inference Script.
 
-Runs the cybersecurity incident triage RL environment (secops_env) with an
-LLM-based agent. Falls back to a heuristic policy if the LLM API is
-unavailable. Emits structured stdout logs in the mandatory
-[START]/[STEP]/[END] key=value format required by the hackathon grader.
+Runs the cybersecurity incident triage RL environment with an LLM-based
+agent that reads rich observation data (SIEM logs, threat intel, asset
+context) and reasons about investigation/containment decisions.
+
+Falls back to a heuristic policy if the LLM API is unavailable.
+Emits structured [START]/[STEP]/[END] logs for the hackathon grader.
 """
 
 import os
 import sys
 
-# Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from secops_env.models import SecOpsAction
 from secops_env.server.secops_environment import SecOpsEnvironment
-from secops_env.server.alert_generator import (
-    ACTION_NAMES,
-    ALERT_TYPE_NAMES,
-    SEVERITY_NAMES,
-)
+from secops_env.server.reward_engine import ACTION_NAMES, SAFE_ACTIONS
 from secops_env.server.tasks import TASKS, TASK_NAMES, grade_task
+from secops_env.server.investigation_engine import format_investigation_for_observation
 
-# ---------------------------------------------------------------------------
-# Environment variables
-# ---------------------------------------------------------------------------
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# ---------------------------------------------------------------------------
-# Reward normalization constants
-# ---------------------------------------------------------------------------
+# Reward normalization for [START]/[STEP]/[END] log output
 MIN_REWARD = -50.0
-MAX_REWARD = 12.0
+MAX_REWARD = 20.0
 
 
 def normalize_reward(raw_reward: float) -> float:
-    """Map raw reward from [-50, +12] to (0, 1), strictly exclusive."""
+    """Map raw reward to (0, 1), strictly exclusive."""
     normalized = (raw_reward - MIN_REWARD) / (MAX_REWARD - MIN_REWARD)
     return max(0.01, min(0.99, normalized))
 
 
-# ---------------------------------------------------------------------------
 # LLM client setup
-# ---------------------------------------------------------------------------
 llm_client = None
 try:
     from openai import OpenAI
-
     if API_BASE_URL and MODEL_NAME:
-        llm_client = OpenAI(
-            base_url=API_BASE_URL,
-            api_key=HF_TOKEN or "no-key",
-        )
+        llm_client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN or "no-key")
 except ImportError:
     pass
 
 
-# ---------------------------------------------------------------------------
-# LLM prompt & action selection
-# ---------------------------------------------------------------------------
 def build_llm_prompt(obs) -> str:
-    """Build the LLM prompt from the current observation."""
-    alert_name = ALERT_TYPE_NAMES.get(obs.alert_type, "Unknown")
-    severity_name = SEVERITY_NAMES.get(obs.severity, "Unknown")
-    evidence = [ACTION_NAMES[i] for i, flag in enumerate(obs.evidence_flags) if flag]
-    remaining = 5 - obs.time_steps_elapsed
+    """Build a rich LLM prompt from the V2 observation."""
+    parts = [
+        "You are a Security Operations Center (SOC) analyst AI agent.",
+        "Analyze the alert below and choose the best action.",
+        "",
+        "=== ACTIVE ALERT ===",
+        f"Rule: {obs.rule_triggered}",
+        f"Severity: {obs.severity.upper()}",
+        f"MITRE: {obs.mitre_tactic} ({obs.mitre_technique})",
+        f"Description: {obs.alert_description}",
+        f"Source: {obs.source_ip}" + (f" ({obs.source_domain})" if obs.source_domain else ""),
+        f"Target: {obs.target_host} — {obs.target_user}, {obs.target_department}",
+        "",
+        "=== RAW LOG ===",
+        obs.raw_log_snippet if obs.raw_log_snippet else "(no raw log available)",
+    ]
 
-    return (
-        "You are a Security Operations Center (SOC) analyst AI agent.\n"
-        "\n"
-        "Current Alert:\n"
-        f"- Type: {alert_name}\n"
-        f"- Severity: {severity_name}\n"
-        f"- Confidence Score: {obs.confidence_score:.2f}\n"
-        f"- Evidence Collected: {evidence if evidence else 'None'}\n"
-        f"- Steps Remaining: {remaining}\n"
-        "\n"
-        "Available Actions:\n"
-        "Safe (investigation):\n"
-        "  0: analyze_headers - Examine email/packet headers\n"
-        "  1: query_logs - Search SIEM logs for related events\n"
-        "  2: verify_identity - Verify user/source identity\n"
-        "  3: scope_environment - Assess affected systems scope\n"
-        "\n"
-        "Risky (containment - requires at least 1 investigation first):\n"
-        "  4: block_ip - Block source IP address\n"
-        "  5: isolate_host - Isolate affected host from network\n"
-        "  6: disable_account - Disable compromised user account\n"
-        "\n"
-        "Resolve:\n"
-        "  7: acknowledge_allow - Mark alert as benign, no action needed\n"
-        "\n"
-        "Rules:\n"
-        "- You MUST investigate (actions 0-3) at least once before using containment (4-6)\n"
-        "- Higher severity alerts need faster containment\n"
-        "- If confidence is low after investigation, consider resolving as benign (7)\n"
-        "- Each investigation step costs -1 reward, so don't over-investigate\n"
-        "\n"
-        "Respond with ONLY a single digit (0-7) representing your chosen action."
-    )
+    if obs.investigation_history:
+        parts.append("")
+        parts.append("=== INVESTIGATION RESULTS ===")
+        parts.append(format_investigation_for_observation(obs.investigation_history))
+
+    done_actions = set(obs.actions_taken)
+    parts.extend([
+        "",
+        f"=== STATUS: Step {obs.time_steps_elapsed}/{obs.max_steps} ===",
+        f"Actions taken: {', '.join(obs.actions_taken) if obs.actions_taken else 'None'}",
+        "",
+        "=== AVAILABLE ACTIONS ===",
+        "Investigation:",
+    ])
+
+    inv_actions = {
+        0: "analyze_headers — Examine email/packet headers for anomalies",
+        1: "query_siem — Search SIEM for related security events",
+        2: "check_reputation — Lookup IOC reputation (IP, domain, hash)",
+        3: "check_asset — Get target host/user business context",
+        4: "analyze_payload — Sandbox/static analysis of suspicious files",
+        5: "correlate_alerts — Find related alerts in the last 24h",
+    }
+    for aid, desc in inv_actions.items():
+        tag = " [DONE]" if ACTION_NAMES[aid] in done_actions else ""
+        parts.append(f"  {aid}: {desc}{tag}")
+
+    parts.extend([
+        "",
+        "Containment (requires 2+ investigation steps first):",
+        "  6: block_source — Block source IP/domain at firewall",
+        "  7: isolate_host — Quarantine affected host from network",
+        "  8: disable_account — Disable compromised user account",
+        "",
+        "Other:",
+        "  9: escalate — Escalate to senior analyst / incident response",
+        "  10: resolve_benign — Mark as false positive, close alert",
+        "",
+        "RULES:",
+        "- Investigate at least twice before containment (actions 6-8)",
+        "- Higher severity = faster containment needed",
+        "- Use investigation results to decide: is this a real threat?",
+        "- If evidence points to benign, resolve (10). If ambiguous, escalate (9).",
+        "- Don't repeat investigation actions already marked [DONE]",
+        "",
+        "Respond with ONLY a single number (0-10).",
+    ])
+
+    return "\n".join(parts)
 
 
 def get_llm_action(obs) -> int:
-    """Get action from LLM, falling back to heuristic on any failure."""
+    """Get action from LLM, falling back to heuristic on failure."""
     if llm_client is None:
         return get_heuristic_action(obs)
-
     try:
         prompt = build_llm_prompt(obs)
         response = llm_client.chat.completions.create(
@@ -119,59 +127,127 @@ def get_llm_action(obs) -> int:
         )
         text = response.choices[0].message.content.strip()
         for char in text:
-            if char.isdigit() and 0 <= int(char) <= 7:
-                return int(char)
+            if char.isdigit():
+                val = int(char)
+                if 0 <= val <= 10:
+                    return val
         return get_heuristic_action(obs)
     except Exception:
         return get_heuristic_action(obs)
 
 
-# ---------------------------------------------------------------------------
-# Heuristic fallback policy
-# ---------------------------------------------------------------------------
 def get_heuristic_action(obs) -> int:
-    """Fallback heuristic policy when LLM is unavailable."""
-    evidence_count = sum(obs.evidence_flags)
+    """Heuristic fallback policy using weighted evidence analysis.
+
+    Three-phase approach: gather → analyze → decide.
+    Uses weighted threat/benign indicators and severity priors
+    to make proportional containment decisions.
+    """
+    done_actions = set(obs.actions_taken)
+    inv_names = {ACTION_NAMES[i] for i in SAFE_ACTIONS}
+    inv_count = sum(1 for a in obs.actions_taken if a in inv_names)
     severity = obs.severity
-    confidence = obs.confidence_score
+    steps_remaining = obs.max_steps - obs.time_steps_elapsed
 
-    if evidence_count == 0:
-        return 1  # query_logs first
+    # Phase 1: Gather minimum evidence (2 investigations required)
+    investigation_priority = [1, 2, 0, 3, 4, 5]  # siem, reputation, headers, asset, payload, correlate
+    if inv_count < 2:
+        for aid in investigation_priority:
+            if ACTION_NAMES[aid] not in done_actions:
+                return aid
 
-    if severity == 2:  # Critical
-        if confidence >= 0.15:
-            return 5  # isolate_host
-        elif evidence_count < 2:
-            return 0  # analyze_headers
+    # Phase 2: Weighted evidence analysis from investigation text
+    inv_text = " ".join(entry.get("result", "") for entry in obs.investigation_history).lower()
+
+    # Strong indicators (weight 3): definitive evidence
+    strong_threat = [
+        "malware", "c2 beacon", "ransomware", "exfiltration", "exploit kit",
+        "cobalt strike", "mimikatz", "encoded command", "base64 -e",
+        "lateral movement", "privilege escalation", "data theft",
+        "command and control", "reverse shell", "credential dump",
+        "dns tunneling", "pass-the-hash", "golden ticket",
+    ]
+    strong_benign = [
+        "false positive", "legitimate business", "authorized by",
+        "expected behavior", "scheduled maintenance", "known vendor",
+        "no indicators of compromise", "verified safe", "approved change",
+    ]
+
+    # Medium indicators (weight 2): suggestive evidence
+    medium_threat = [
+        "suspicious", "anomalous", "unauthorized", "brute force",
+        "phishing", "obfuscated", "fileless", "living off the land",
+        "renamed binary", "unusual hours", "bulk download", "beacon",
+        "encrypted channel", "non-standard port", "powershell -enc",
+        "certutil", "bitsadmin", "regsvr32", "mshta",
+    ]
+    medium_benign = [
+        "clean scan", "normal activity", "benign", "marketing email",
+        "newsletter", "routine", "standard procedure", "no anomalies",
+    ]
+
+    # Weak indicators (weight 1): contextual hints
+    weak_threat = [
+        "flagged", "elevated", "multiple failed", "high entropy",
+        "after hours", "external ip", "new process",
+    ]
+    weak_benign = [
+        "low risk", "informational", "known pattern", "regular schedule",
+    ]
+
+    threat_score = (
+        sum(3 for kw in strong_threat if kw in inv_text)
+        + sum(2 for kw in medium_threat if kw in inv_text)
+        + sum(1 for kw in weak_threat if kw in inv_text)
+    )
+    benign_score = (
+        sum(3 for kw in strong_benign if kw in inv_text)
+        + sum(2 for kw in medium_benign if kw in inv_text)
+        + sum(1 for kw in weak_benign if kw in inv_text)
+    )
+
+    # Severity prior: higher severity alerts are more likely real threats
+    severity_prior = {"medium": 0, "high": 3, "critical": 6}
+    threat_score += severity_prior.get(severity, 0)
+
+    # Phase 3: Decision with escalating decisiveness
+    def _contain(sev):
+        """Pick proportional containment action based on severity."""
+        if sev == "critical":
+            return 7  # isolate_host
+        elif sev == "high":
+            return 6  # block_source
+        return 8  # disable_account
+
+    # After 4+ investigations or running out of time: must decide now
+    if inv_count >= 4 or steps_remaining <= 2:
+        if threat_score > benign_score:
+            return _contain(severity)
+        elif benign_score > threat_score + 3:
+            return 10  # resolve_benign — high confidence benign
+        elif threat_score > 0:
+            return _contain(severity)  # lean toward containment when uncertain
         else:
-            return 5
+            return 10  # resolve_benign
 
-    if severity == 1:  # High
-        if evidence_count < 2:
-            for i in range(4):
-                if not obs.evidence_flags[i]:
-                    return i
-            return 4
-        if confidence >= 0.30:
-            return 4  # block_ip
-        else:
-            return 7  # acknowledge_allow
+    # After 2-3 investigations: decide if evidence is clear, else investigate more
+    clear_margin = 5  # need strong signal to act early
+    if threat_score >= benign_score + clear_margin:
+        return _contain(severity)
+    elif benign_score >= threat_score + clear_margin:
+        return 10  # resolve_benign
 
-    # Medium
-    if evidence_count < 2:
-        for i in range(4):
-            if not obs.evidence_flags[i]:
-                return i
-        return 7
-    if confidence >= 0.25:
-        return 6  # disable_account
-    else:
-        return 7  # acknowledge_allow
+    # Evidence ambiguous — gather more
+    for aid in investigation_priority:
+        if ACTION_NAMES[aid] not in done_actions:
+            return aid
+
+    # All investigations exhausted — decide on balance of evidence
+    if threat_score >= benign_score:
+        return _contain(severity)
+    return 10  # resolve_benign
 
 
-# ---------------------------------------------------------------------------
-# Main inference loop
-# ---------------------------------------------------------------------------
 def run_inference():
     """Run all tasks, emitting mandatory [START]/[STEP]/[END] stdout logs."""
     model_display = MODEL_NAME or "heuristic"
@@ -203,9 +279,10 @@ def run_inference():
                 normalized = normalize_reward(obs.reward)
                 step_rewards.append(normalized)
 
-                error_str = obs.metadata.get("last_action_error") or "null"
-                if error_str != "null":
-                    error_str = error_str.replace("\n", " ")
+                error_str = "null"
+                status = obs.metadata.get("status", "")
+                if status in ("duplicate_action", "procedure_violation"):
+                    error_str = status
 
                 done_str = "true" if obs.done else "false"
                 print(
@@ -213,26 +290,18 @@ def run_inference():
                     f"reward={normalized:.2f} done={done_str} error={error_str}"
                 )
 
-            # Determine outcome
             outcome = obs.metadata.get("status", "unknown")
-            success = outcome in (
-                "true_positive",
-                "true_positive_fast",
-                "true_negative",
-                "timeout_benign",
-            )
+            success = outcome in ("true_positive", "true_negative", "escalated_true_threat", "timeout_benign")
 
-            episode_results.append(
-                {
-                    "reward": obs.reward,
-                    "steps": step_num,
-                    "outcome": outcome,
-                    "max_steps": max_steps,
-                }
-            )
+            episode_results.append({
+                "reward": obs.metadata.get("cumulative_reward", obs.reward),
+                "steps": step_num,
+                "outcome": outcome,
+                "max_steps": max_steps,
+                "investigation_count": obs.metadata.get("investigation_count", 0),
+            })
 
             env.close()
-
             task_score = grade_task(task_name, episode_results)
 
             rewards_str = ",".join(f"{r:.2f}" for r in step_rewards)
