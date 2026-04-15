@@ -78,6 +78,27 @@ class SecOpsObservation(Observation):
         description="Names of actions already taken this episode",
     )
 
+    # Episode outcome fields (OpenEnv strips metadata; these are explicit so they survive serialization)
+    outcome_status: str = Field(
+        default="",
+        description="Terminal outcome: true_positive, false_positive, true_negative, "
+        "false_negative, compliance_breach, escalated_true_threat, "
+        "escalated_false_alarm, timeout_breach, timeout_benign",
+    )
+    alert_category: str = Field(
+        default="",
+        description="Alert category: phishing, malware, insider_threat, "
+        "lateral_movement, data_exfiltration, ddos, evasion",
+    )
+    investigation_count: int = Field(
+        default=0,
+        description="Number of investigation actions completed this episode",
+    )
+    episode_cumulative_reward: float = Field(
+        default=0.0,
+        description="Running total of rewards accumulated this episode",
+    )
+
 
 class SecOpsState(State):
     """Internal state for SecOps Alert Router V2.

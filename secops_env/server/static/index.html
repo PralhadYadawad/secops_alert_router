@@ -1043,7 +1043,12 @@ function parseObs(raw) {
       actions_taken: o.actions_taken || [],
       done: raw.done ?? o.done ?? false,
       reward: raw.reward ?? o.reward ?? 0,
-      metadata: o.metadata || {}
+      metadata: o.metadata || {},
+      // Explicit fields (survive OpenEnv's metadata-stripping serialization)
+      outcome_status: o.outcome_status || '',
+      alert_category: o.alert_category || '',
+      investigation_count: o.investigation_count || 0,
+      episode_cumulative_reward: o.episode_cumulative_reward ?? (raw.reward ?? 0)
     };
   }
   return raw;
@@ -1114,7 +1119,7 @@ function updateAlertPanel(obs) {
   document.getElementById('metricRemaining').textContent = Math.max(0, obs.max_steps - obs.time_steps_elapsed);
 
   const rewEl = document.getElementById('metricReward');
-  const cumReward = (obs.metadata && obs.metadata.cumulative_reward) || obs.reward;
+  const cumReward = obs.episode_cumulative_reward ?? (obs.metadata && obs.metadata.cumulative_reward) ?? obs.reward;
   rewEl.textContent = cumReward.toFixed(1);
   rewEl.className = 'metric-value mono ' + (cumReward >= 0 ? 'text-green' : 'text-red');
 
@@ -1194,7 +1199,7 @@ function escHtml(s) {
 
 /* ===== OUTCOME ===== */
 function showOutcome(obs) {
-  const status = (obs.metadata && obs.metadata.status) || '';
+  const status = obs.outcome_status || (obs.metadata && obs.metadata.status) || '';
   const reward = obs.reward;
   let title, desc, cls, icon;
 
@@ -1255,8 +1260,8 @@ function addEpisodeEntry(obs, isSuccess) {
   const empty = document.getElementById('epEmpty');
   if (empty) empty.remove();
 
-  const status = (obs.metadata && obs.metadata.status) || 'unknown';
-  const category = (obs.metadata && obs.metadata.category) || '';
+  const status = obs.outcome_status || (obs.metadata && obs.metadata.status) || 'unknown';
+  const category = obs.alert_category || (obs.metadata && obs.metadata.category) || '';
   const rewCls = obs.reward >= 0 ? 'text-green' : 'text-red';
   const rowCls = isSuccess ? 'ep-row--positive' : 'ep-row--negative';
   const mark = isSuccess ? '<span class="text-green">&#10003;</span>' : '<span class="text-red">&#10007;</span>';
@@ -1412,7 +1417,7 @@ async function doAction(actionId) {
     const rewType = obs.reward >= 0 ? 'reward' : 'reward-neg';
     termLog('RWD', (obs.reward >= 0 ? '+' : '') + obs.reward.toFixed(1), rewType);
 
-    const status = (obs.metadata && obs.metadata.status) || '';
+    const status = obs.outcome_status || (obs.metadata && obs.metadata.status) || '';
     if (status === 'duplicate_action') termLog('WARN', 'Duplicate investigation \u2014 penalty applied', 'error');
     if (status === 'procedure_violation') termLog('WARN', 'Procedure violation \u2014 insufficient evidence', 'error');
 
@@ -1423,8 +1428,8 @@ async function doAction(actionId) {
       setActionsEnabled(false);
 
       const isSuccess = ['true_positive', 'true_negative', 'escalated_true_threat', 'timeout_benign'].includes(status);
-      const cumReward = (obs.metadata && obs.metadata.cumulative_reward) || obs.reward;
-      const invCount = (obs.metadata && obs.metadata.investigation_count) || 0;
+      const cumReward = obs.episode_cumulative_reward ?? (obs.metadata && obs.metadata.cumulative_reward) ?? obs.reward;
+      const invCount = obs.investigation_count || (obs.metadata && obs.metadata.investigation_count) || 0;
 
       stats.episodes++;
       stats.totalReward += cumReward;

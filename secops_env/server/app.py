@@ -13,12 +13,17 @@ from openenv.core.env_server import create_app
 from ..models import SecOpsAction, SecOpsObservation
 from .secops_environment import SecOpsEnvironment
 from .playbook_generator import generate_playbook
+from .alert_generator import AlertGenerator
+from .tasks import TASKS
 
 # ── WebSocket broadcast state ──────────────────────────────────────────────────
 _ws_clients: set[WebSocket] = set()
 
 # ── Last completed episode — updated by BroadcastingSecOpsEnvironment ─────────
 LAST_EPISODE: dict = {}
+
+# ── Singleton environment instance — persists state across HTTP requests ───────
+_ENV_INSTANCE: Optional["BroadcastingSecOpsEnvironment"] = None
 
 
 async def _do_broadcast(data_str: str) -> None:
@@ -60,8 +65,25 @@ class BroadcastingSecOpsEnvironment(SecOpsEnvironment):
     The core RL logic is unchanged — this class only wraps the parent methods.
     """
 
-    def reset(self, *args, **kwargs) -> SecOpsObservation:
-        """Reset and broadcast the initial observation."""
+    def reset(self, *args, task_name: Optional[str] = None, **kwargs) -> SecOpsObservation:
+        """Reset and broadcast the initial observation.
+
+        Supports live task switching: if task_name differs from the current
+        task, the alert generator is re-configured before generating the new
+        scenario. This allows the dashboard task tabs to take effect at runtime
+        without restarting the server.
+        """
+        if task_name and task_name != self._task_name:
+            task_config = TASKS.get(task_name, TASKS["phishing-triage"])
+            self._task_name = task_name
+            self._max_steps = task_config.get("max_steps", 10)
+            self._alert_gen = AlertGenerator(
+                seed=kwargs.get("seed"),
+                categories=task_config.get("categories"),
+                difficulties=task_config.get("difficulties"),
+                threat_ratio=task_config.get("threat_ratio"),
+                max_steps=self._max_steps,
+            )
         obs = super().reset(*args, **kwargs)
         _schedule_broadcast(obs.model_dump())
         return obs
@@ -87,9 +109,21 @@ class BroadcastingSecOpsEnvironment(SecOpsEnvironment):
 
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
-# Pass the subclass so OpenEnv creates BroadcastingSecOpsEnvironment instances
+def _env_factory() -> BroadcastingSecOpsEnvironment:
+    """Return the module-level singleton environment instance.
+
+    OpenEnv calls the factory on every /reset and /step request. Using a
+    singleton ensures episode state (step count, actions taken, scenario)
+    persists across the full request-response cycle of each episode.
+    """
+    global _ENV_INSTANCE
+    if _ENV_INSTANCE is None:
+        _ENV_INSTANCE = BroadcastingSecOpsEnvironment()
+    return _ENV_INSTANCE
+
+
 app = create_app(
-    BroadcastingSecOpsEnvironment, SecOpsAction, SecOpsObservation,
+    _env_factory, SecOpsAction, SecOpsObservation,
     env_name="secops_env",
 )
 

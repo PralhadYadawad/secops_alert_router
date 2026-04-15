@@ -136,6 +136,10 @@ class SecOpsEnvironment(Environment):
             actions_taken=[],
             done=False,
             reward=0.0,
+            outcome_status="new_alert",
+            alert_category=self._scenario.get("category", ""),
+            investigation_count=0,
+            episode_cumulative_reward=0.0,
             metadata={
                 "status": "new_alert",
                 "category": self._scenario.get("category", ""),
@@ -257,6 +261,10 @@ class SecOpsEnvironment(Environment):
             actions_taken=list(self._state.actions_taken),
             done=done,
             reward=reward,
+            outcome_status=status,
+            alert_category=self._scenario.get("category", ""),
+            investigation_count=self._state.investigation_count,
+            episode_cumulative_reward=self._state.cumulative_reward,
             metadata={
                 "status": status,
                 "category": self._scenario.get("category", ""),
