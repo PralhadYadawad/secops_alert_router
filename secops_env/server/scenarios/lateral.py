@@ -103,6 +103,13 @@ LATERAL_SCENARIOS = [
         "difficulty": "medium-hard",
         "is_true_threat": True,
         "severity": "high",
+        "compliance": {
+            "framework": "GDPR",
+            "data_type": "PII",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": False,
+        },
         "mitre": {"tactic": "Lateral Movement", "technique": "T1021", "name": "Remote Services"},
         "alert": {
             "rule": "RDP Brute Force -- Internal Source",
@@ -152,6 +159,13 @@ LATERAL_SCENARIOS = [
         "difficulty": "medium-hard",
         "is_true_threat": True,
         "severity": "high",
+        "compliance": {
+            "framework": "PCI-DSS",
+            "data_type": "PCI",
+            "breach_notification_hours": 72,
+            "data_volume": "massive",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Lateral Movement", "technique": "T1021", "name": "Remote Services"},
         "alert": {
             "rule": "Service Account Interactive Logon Anomaly",

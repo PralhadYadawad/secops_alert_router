@@ -50,6 +50,20 @@ class SecOpsObservation(Observation):
     target_department: str = Field(default="", description="Target user department")
     raw_log_snippet: str = Field(default="", description="Raw log/email snippet from the alert")
 
+    # Compliance context — visible to agent so they know what data is at risk
+    data_classification: str = Field(
+        default="",
+        description="Data type at risk: PII, PHI, PCI, Financial, Internal",
+    )
+    regulatory_framework: str = Field(
+        default="",
+        description="Applicable regulatory framework: GDPR, HIPAA, PCI-DSS, SOX",
+    )
+    breach_notification_window: str = Field(
+        default="",
+        description="Required notification window e.g. '72 hours (GDPR Art. 33)'",
+    )
+
     # Investigation results (grows as agent investigates)
     investigation_history: List[Dict[str, str]] = Field(
         default_factory=list,
@@ -93,3 +107,55 @@ class SecOpsState(State):
         default="medium",
         description="Business criticality of target asset",
     )
+
+
+class QueueAction(Action):
+    """Action for multi-alert queue triage mode.
+
+    Same action space as SecOpsAction but includes which alert to act on.
+
+    Attributes:
+        action_id: Discrete action index 0-10 (same mapping as SecOpsAction).
+        alert_index: Which alert slot in the queue to target (0-based).
+    """
+
+    action_id: int = Field(
+        ge=0,
+        le=10,
+        description="Discrete action index (0-10). Same mapping as SecOpsAction.",
+    )
+    alert_index: int = Field(
+        ge=0,
+        le=9,
+        default=0,
+        description="Which alert in the queue to act on (0-based index)",
+    )
+
+
+class QueueObservation(Observation):
+    """Observation for multi-alert queue triage mode.
+
+    The agent sees a summary of all queued alerts plus the full detail
+    of the currently focused alert (active_alert).
+
+    Attributes:
+        active_alert: Full observation dict for the currently focused alert slot.
+        queue_summary: List of dicts summarising each alert slot's status.
+        queue_size: Total number of alert slots in the queue.
+        alerts_remaining: Number of alert slots not yet resolved.
+        total_steps_used: Steps used across all slots this episode.
+        total_steps_max: Maximum total steps allowed for the queue episode.
+    """
+
+    active_alert: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Full observation of the focused alert slot",
+    )
+    queue_summary: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="[{alert_id, severity, category, done, outcome, steps_used}] for each slot",
+    )
+    queue_size: int = Field(default=5, description="Total alert slots in queue")
+    alerts_remaining: int = Field(default=5, description="Unresolved alert slots")
+    total_steps_used: int = Field(default=0, description="Steps used across all slots")
+    total_steps_max: int = Field(default=40, description="Max steps for entire queue episode")

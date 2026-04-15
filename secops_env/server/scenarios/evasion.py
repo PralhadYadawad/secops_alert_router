@@ -93,6 +93,13 @@ EVASION_SCENARIOS: list[dict] = [
         "difficulty": "hard",
         "is_true_threat": True,
         "severity": "critical",
+        "compliance": {
+            "framework": "GDPR",
+            "data_type": "PII",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Execution", "technique": "T1059.001", "name": "Command and Scripting Interpreter: PowerShell"},
         "alert": {
             "rule": "EDR-EVASION-FILELESS-002",
@@ -174,6 +181,13 @@ EVASION_SCENARIOS: list[dict] = [
         "difficulty": "expert",
         "is_true_threat": True,
         "severity": "critical",
+        "compliance": {
+            "framework": "SOX",
+            "data_type": "Financial",
+            "breach_notification_hours": 48,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Defense Evasion", "technique": "T1027", "name": "Obfuscated Files or Information"},
         "alert": {
             "rule": "EDR-EVASION-SLOWLOW-001",

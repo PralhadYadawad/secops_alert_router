@@ -98,6 +98,13 @@ EXFIL_SCENARIOS = [
         "difficulty": "hard",
         "is_true_threat": True,
         "severity": "critical",
+        "compliance": {
+            "framework": "GDPR",
+            "data_type": "PII",
+            "breach_notification_hours": 72,
+            "data_volume": "massive",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Exfiltration", "technique": "T1048", "name": "Exfiltration Over Alternative Protocol"},
         "alert": {
             "rule": "DNS Tunneling -- High-Entropy Subdomain Queries",
@@ -194,6 +201,13 @@ EXFIL_SCENARIOS = [
         "difficulty": "expert",
         "is_true_threat": True,
         "severity": "critical",
+        "compliance": {
+            "framework": "SOX",
+            "data_type": "Financial",
+            "breach_notification_hours": 48,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Exfiltration", "technique": "T1048", "name": "Exfiltration Over Alternative Protocol"},
         "alert": {
             "rule": "Encrypted Archive Upload to Uncategorized Domain",

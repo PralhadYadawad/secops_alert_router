@@ -91,7 +91,7 @@ def test_resolve_benign():
     obs = env.step(SecOpsAction(action_id=10))  # resolve_benign
     assert obs.done, "Resolve should end episode"
     status = obs.metadata.get("status")
-    assert status in ("true_negative", "false_negative"), f"Got unexpected status: {status}"
+    assert status in ("true_negative", "false_negative", "compliance_breach"), f"Got unexpected status: {status}"
     print("PASS: test_resolve_benign")
 
 

@@ -87,6 +87,13 @@ DDOS_SCENARIOS: list[dict] = [
         "difficulty": "medium",
         "is_true_threat": True,
         "severity": "critical",
+        "compliance": {
+            "framework": "PCI-DSS",
+            "data_type": "PCI",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Impact", "technique": "T1498", "name": "Network Denial of Service"},
         "alert": {
             "rule": "NET-DDOS-SYNFLOOD-001",
@@ -128,6 +135,13 @@ DDOS_SCENARIOS: list[dict] = [
         "difficulty": "medium",
         "is_true_threat": True,
         "severity": "critical",
+        "compliance": {
+            "framework": "PCI-DSS",
+            "data_type": "PCI",
+            "breach_notification_hours": 72,
+            "data_volume": "massive",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Impact", "technique": "T1499", "name": "Endpoint Denial of Service"},
         "alert": {
             "rule": "NET-DDOS-APPFLOOD-001",

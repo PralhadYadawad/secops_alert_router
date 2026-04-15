@@ -152,6 +152,13 @@ PHISHING_SCENARIOS: list[dict] = [
     {
         "id": "phish-004", "category": "phishing", "difficulty": "easy",
         "is_true_threat": True, "severity": "high",
+        "compliance": {
+            "framework": "SOX",
+            "data_type": "Financial",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.002",
                   "name": "Phishing: Spearphishing Link"},
         "alert": {"rule": "Credential Harvesting Page Detected",
@@ -206,6 +213,13 @@ PHISHING_SCENARIOS: list[dict] = [
     {
         "id": "phish-005", "category": "phishing", "difficulty": "medium",
         "is_true_threat": True, "severity": "high",
+        "compliance": {
+            "framework": "PCI-DSS",
+            "data_type": "PCI",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.001",
                   "name": "Phishing: Spearphishing Attachment"},
         "alert": {"rule": "Suspicious Email Attachment Detected",
@@ -264,6 +278,13 @@ PHISHING_SCENARIOS: list[dict] = [
     {
         "id": "phish-006", "category": "phishing", "difficulty": "medium-hard",
         "is_true_threat": True, "severity": "critical",
+        "compliance": {
+            "framework": "SOX",
+            "data_type": "Financial",
+            "breach_notification_hours": 48,
+            "data_volume": "single",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.002",
                   "name": "Phishing: Spearphishing Link"},
         "alert": {"rule": "Executive Display Name Spoofing Detected",
@@ -325,6 +346,13 @@ PHISHING_SCENARIOS: list[dict] = [
     {
         "id": "phish-007", "category": "phishing", "difficulty": "hard",
         "is_true_threat": True, "severity": "high",
+        "compliance": {
+            "framework": "GDPR",
+            "data_type": "PII",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.002",
                   "name": "Phishing: Spearphishing Link"},
         "alert": {"rule": "Password Reset Link From Unverified Source",

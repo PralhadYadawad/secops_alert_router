@@ -54,6 +54,30 @@ TASKS = {
         "max_steps": 15,
         "description": "Expert: Detect adversaries using LOLBins, fileless malware, and encoded payloads that evade standard detection",
     },
+    "compliance-triage": {
+        "num_episodes": 8,
+        "categories": ["data_exfiltration", "insider_threat", "phishing"],
+        "difficulties": ["medium", "hard"],
+        "threat_ratio": 0.65,
+        "max_steps": 12,
+        "description": (
+            "Triage alerts involving regulated data (GDPR/HIPAA/PCI-DSS). "
+            "Breaching compliance-tagged data carries amplified penalties."
+        ),
+    },
+    "queue-triage": {
+        "num_episodes": 3,
+        "queue_size": 5,
+        "categories": ["phishing", "malware", "insider_threat"],
+        "difficulties": ["easy", "medium"],
+        "threat_ratio": 0.60,
+        "max_steps": 10,
+        "max_total_steps": 40,
+        "description": (
+            "Triage a 5-alert backlog. Prioritize critical threats. "
+            "Queue episode ends when all slots are resolved or total steps exhausted."
+        ),
+    },
 }
 
 TASK_NAMES = list(TASKS.keys())
@@ -83,6 +107,12 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
     - Speed: how quickly episodes are resolved
     - Evidence quality: investigation depth before decisive actions
     - Decisive action rate: direct containment/resolution vs escalation
+
+    Known outcome strings in episode_results:
+        "true_positive", "true_negative", "false_positive", "false_negative",
+        "escalated_true_threat", "escalated_false_alarm", "timeout_benign",
+        "timeout_breach", "compliance_breach" (compliance-triage worst outcome —
+        indicates regulated data was breached due to incorrect triage decision).
 
     Returns:
         Score strictly in (0, 1).
@@ -149,6 +179,23 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
         fn_count = sum(1 for ep in episode_results if ep["outcome"] in {"false_negative", "timeout_breach"})
         miss_rate = fn_count / total
         score = 0.30 * accuracy + 0.25 * evidence_quality + 0.25 * (1.0 - miss_rate) + 0.20 * decisive_rate
+
+    elif task_name == "compliance-triage":
+        # Penalise compliance breaches heavily — regulators don't grade on a curve.
+        # accuracy: correct triage decisions
+        # evidence_quality: investigated before deciding
+        # breach_rate: fraction of episodes ending in compliance_breach (worst outcome)
+        # decisive_rate: direct contain/resolve vs escalation
+        compliance_breach_count = sum(
+            1 for ep in episode_results if ep.get("outcome") == "compliance_breach"
+        )
+        breach_rate = compliance_breach_count / total
+        score = (
+            0.30 * accuracy
+            + 0.25 * evidence_quality
+            + 0.30 * (1.0 - breach_rate)
+            + 0.15 * decisive_rate
+        )
 
     else:
         score = accuracy

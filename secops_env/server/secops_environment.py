@@ -25,6 +25,21 @@ from .rubrics import SecOpsTriageRubric
 from .tasks import TASKS
 
 
+def _format_breach_window(compliance: dict) -> str:
+    """Return regulatory notification window string from a compliance dict.
+
+    Used to populate the breach_notification_window observation field so the
+    agent knows the urgency of data protection obligations.
+    """
+    windows = {
+        "GDPR": "72 hours from discovery (GDPR Art. 33)",
+        "HIPAA": "60 days from discovery (HIPAA § 164.412)",
+        "PCI-DSS": "Immediately upon confirmation (PCI-DSS v4.0 Req. 12.10)",
+        "SOX": "Escalate to legal counsel (SOX § 302/906)",
+    }
+    return windows.get(compliance.get("framework", ""), "")
+
+
 class SecOpsEnvironment(Environment):
     """Cybersecurity incident triage environment V2.
 
@@ -112,6 +127,9 @@ class SecOpsEnvironment(Environment):
             target_user=target.get("user", ""),
             target_department=target.get("department", ""),
             raw_log_snippet=self._scenario.get("raw_log", ""),
+            data_classification=self._scenario.get("compliance", {}).get("data_type", ""),
+            regulatory_framework=self._scenario.get("compliance", {}).get("framework", ""),
+            breach_notification_window=_format_breach_window(self._scenario.get("compliance", {})),
             investigation_history=[],
             time_steps_elapsed=0,
             max_steps=self._max_steps,
@@ -171,6 +189,7 @@ class SecOpsEnvironment(Environment):
             "false_positive",
             "true_negative",
             "false_negative",
+            "compliance_breach",
             "escalated_true_threat",
             "escalated_false_alarm",
             "timeout_breach",
@@ -229,6 +248,9 @@ class SecOpsEnvironment(Environment):
             target_user=target.get("user", ""),
             target_department=target.get("department", ""),
             raw_log_snippet=self._scenario.get("raw_log", ""),
+            data_classification=self._scenario.get("compliance", {}).get("data_type", ""),
+            regulatory_framework=self._scenario.get("compliance", {}).get("framework", ""),
+            breach_notification_window=_format_breach_window(self._scenario.get("compliance", {})),
             investigation_history=inv_history,
             time_steps_elapsed=self._state.step_count,
             max_steps=self._max_steps,

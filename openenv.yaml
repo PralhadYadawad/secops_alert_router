@@ -25,3 +25,9 @@ tasks:
   - name: adversarial-evasion
     description: "Expert: Detect adversaries using LOLBins, fileless malware, and encoded payloads"
     difficulty: expert
+  - name: compliance-triage
+    description: "Hard: Triage alerts on regulated data (GDPR/HIPAA/PCI-DSS) — breaching compliance-tagged incidents carries amplified penalties"
+    difficulty: hard
+  - name: queue-triage
+    description: "Medium-Hard: Triage a 5-alert backlog and prioritize critical threats across concurrent incidents"
+    difficulty: medium-hard

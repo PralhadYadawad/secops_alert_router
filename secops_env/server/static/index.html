@@ -457,6 +457,118 @@ body > * { position: relative; z-index: 1; }
 .panel-left, .panel-center, .panel-right { animation: fadeInUp 0.4s ease-out; }
 .panel-center { animation-delay: 0.05s; }
 .panel-right { animation-delay: 0.1s; }
+
+/* ===== WEBSOCKET BADGE ===== */
+.ws-badge {
+  font-size: 11px;
+  font-family: monospace;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+}
+.ws-badge--live {
+  color: #00ff88;
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+}
+.ws-badge--offline {
+  color: #555d62;
+  background: rgba(85, 93, 98, 0.1);
+  border: 1px solid rgba(85, 93, 98, 0.2);
+}
+
+/* ===== COMPLIANCE SECTION ===== */
+.compliance-section {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 171, 0, 0.06);
+  border: 1px solid rgba(255, 171, 0, 0.25);
+  border-radius: 4px;
+}
+.compliance-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffab00;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+.compliance-icon { font-size: 12px; }
+.compliance-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.compliance-fw {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(255, 171, 0, 0.15);
+  color: #ffab00;
+  font-family: monospace;
+}
+.compliance-data {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(255, 100, 0, 0.12);
+  color: #ff9500;
+  font-family: monospace;
+}
+.compliance-window {
+  font-size: 10px;
+  color: #ff9500;
+  margin-top: 3px;
+  font-style: italic;
+}
+
+/* ===== PLAYBOOK EXPORT BUTTON ===== */
+.btn-playbook {
+  background: rgba(88, 166, 255, 0.12);
+  border: 1px solid rgba(88, 166, 255, 0.35);
+  color: #58a6ff;
+  font-size: 11px;
+  padding: 5px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: monospace;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  transition: all 0.2s ease;
+}
+.btn-playbook:hover {
+  background: rgba(88, 166, 255, 0.22);
+  border-color: rgba(88, 166, 255, 0.6);
+}
+
+/* ===== LIVE BADGE ===== */
+.live-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; margin-left: 10px; }
+.live-badge--on { color: #00ff88; background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25); }
+.live-badge--off { color: #555d65; background: rgba(85,93,102,0.08); border: 1px solid rgba(85,93,102,0.25); }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; }
+.live-badge--on .live-dot { background: #00ff88; box-shadow: 0 0 6px #00ff88; animation: pulse-dot 1.5s ease-in-out infinite; }
+.live-badge--off .live-dot { background: #555d65; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ===== COMPLIANCE BADGES ===== */
+.compliance-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 1px; padding: 2px 7px; border-radius: 3px; margin-left: 6px; }
+.compliance-badge--gdpr { color: #4fc3f7; background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.3); }
+.compliance-badge--hipaa { color: #ce93d8; background: rgba(206,147,216,0.1); border: 1px solid rgba(206,147,216,0.3); }
+.compliance-badge--pci { color: #ffb74d; background: rgba(255,183,77,0.1); border: 1px solid rgba(255,183,77,0.3); }
+.compliance-badge--sox { color: #a5d6a7; background: rgba(165,214,167,0.1); border: 1px solid rgba(165,214,167,0.3); }
+.compliance-info { font-size: 10px; color: #adb5bd; margin-top: 4px; }
+.compliance-info strong { color: #e0e0e0; }
+
+/* ===== PLAYBOOK EXPORT BUTTON (NEW) ===== */
+.btn-playbook-new { background: rgba(79,195,247,0.1); border: 1px solid rgba(79,195,247,0.3); color: #4fc3f7; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; display: none; margin-top: 8px; transition: all 0.15s; }
+.btn-playbook-new:hover { background: rgba(79,195,247,0.2); color: #fff; }
 </style>
 </head>
 <body>
@@ -472,12 +584,16 @@ body > * { position: relative; z-index: 1; }
     </div>
     <span class="header-title">SecOps Alert Router</span>
     <span class="header-version">V2</span>
+    <span id="liveBadge" class="live-badge live-badge--off"><span class="live-dot"></span><span id="liveText">OFFLINE</span></span>
   </div>
   <div class="header-center">
     <span class="status-indicator"><span class="status-dot"></span>Environment Online</span>
     <span class="status-indicator"><span class="status-dot"></span>MITRE ATT&CK Enabled</span>
   </div>
-  <div class="header-right"><span id="clock">00:00:00</span></div>
+  <div class="header-right" style="display:flex; align-items:center; gap:10px;">
+    <span id="wsBadge" class="ws-badge ws-badge--offline" title="WebSocket stream status">&#9675; OFFLINE</span>
+    <span id="clock">00:00:00</span>
+  </div>
 </header>
 
 <!-- ===== DASHBOARD ===== -->
@@ -504,6 +620,7 @@ body > * { position: relative; z-index: 1; }
             <span id="mitreBadge" class="mitre-tag"></span>
             <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary);" id="alertId"></span>
           </div>
+          <div id="complianceBadges" style="margin-top:4px;min-height:14px;"></div>
 
           <div style="font-size:12px; font-weight:700; color:var(--text-primary); margin:4px 0;" id="ruleTriggered"></div>
 
@@ -520,6 +637,18 @@ body > * { position: relative; z-index: 1; }
           <div class="alert-info-row">
             <span class="alert-info-label">Dept</span>
             <span class="alert-info-value" id="deptInfo"></span>
+          </div>
+
+          <div id="complianceSection" class="compliance-section hidden">
+            <div class="compliance-header">
+              <span class="compliance-icon">&#9878;</span>
+              <span class="compliance-label">Regulated Data</span>
+            </div>
+            <div class="compliance-row">
+              <span class="compliance-fw" id="compFramework">GDPR</span>
+              <span class="compliance-data" id="compDataType">PII</span>
+            </div>
+            <div class="compliance-window" id="compWindow"></div>
           </div>
 
           <div class="metrics-grid">
@@ -563,6 +692,14 @@ body > * { position: relative; z-index: 1; }
       <div class="outcome-title" id="outcomeTitle"></div>
       <div class="outcome-desc" id="outcomeDesc"></div>
     </div>
+    <button id="playbookExportBtn" class="btn-playbook-new" onclick="exportPlaybook()">Export Playbook</button>
+
+    <!-- Playbook Export -->
+    <div style="text-align:center;">
+      <button id="playbookBtn" class="btn btn-playbook hidden" onclick="exportPlaybook()">
+        Export Playbook
+      </button>
+    </div>
 
   </aside>
 
@@ -588,6 +725,12 @@ body > * { position: relative; z-index: 1; }
       </button>
       <button class="tab" data-task="adversarial-evasion" onclick="selectTask(this)">
         <span class="diff diff-expert">EXPERT</span>adversarial-evasion
+      </button>
+      <button class="tab" data-task="compliance-triage" onclick="selectTask(this)">
+        <span class="diff diff-hard">HARD</span>compliance-triage
+      </button>
+      <button class="tab" data-task="queue-triage" onclick="selectTask(this)">
+        <span class="diff diff-hard">M-HARD</span>queue-triage
       </button>
     </div>
 
@@ -740,6 +883,87 @@ body > * { position: relative; z-index: 1; }
 </main>
 
 <script>
+/* ===== WEBSOCKET STREAM ===== */
+let _wsConn = null;
+
+function connectWS() {
+  try {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    _wsConn = new WebSocket(`${proto}://${location.host}/ws/stream`);
+
+    _wsConn.onopen = () => {
+      const badge = document.getElementById('wsBadge');
+      if (badge) { badge.textContent = '\u25CF LIVE'; badge.className = 'ws-badge ws-badge--live'; }
+      const lb = document.getElementById('liveBadge');
+      if (lb) { lb.className = 'live-badge live-badge--on'; }
+      const lt = document.getElementById('liveText');
+      if (lt) { lt.textContent = 'LIVE'; }
+    };
+
+    _wsConn.onclose = () => {
+      const badge = document.getElementById('wsBadge');
+      if (badge) { badge.textContent = '\u25CB OFFLINE'; badge.className = 'ws-badge ws-badge--offline'; }
+      const lb = document.getElementById('liveBadge');
+      if (lb) { lb.className = 'live-badge live-badge--off'; }
+      const lt = document.getElementById('liveText');
+      if (lt) { lt.textContent = 'OFFLINE'; }
+      setTimeout(connectWS, 3000);
+    };
+
+    _wsConn.onerror = () => {
+      if (_wsConn) _wsConn.close();
+    };
+
+    _wsConn.onmessage = (e) => {
+      // Pulse badge on any message
+      const badge = document.getElementById('wsBadge');
+      if (badge) { badge.style.opacity = '0.5'; setTimeout(() => { badge.style.opacity = '1'; }, 150); }
+      // Process observation data pushed from server (e.g. inference.py running)
+      try {
+        const data = JSON.parse(e.data);
+        if (data.alert_id) {
+          const obs = parseObs({observation: data});
+          currentObs = obs;
+          updateAlertPanel(obs);
+          if (obs.done) {
+            showOutcome(obs);
+            const pbBtn = document.getElementById('playbookExportBtn');
+            if (pbBtn) pbBtn.style.display = 'inline-block';
+          }
+        }
+      } catch(err) { /* ignore non-obs pings */ }
+    };
+  } catch (e) {
+    setTimeout(connectWS, 5000);
+  }
+}
+
+// Connect on page load
+connectWS();
+
+/* ===== PLAYBOOK EXPORT ===== */
+async function exportPlaybook() {
+  try {
+    const res = await fetch(BASE + '/playbook');
+    if (!res.ok) { toast('Playbook not available yet', 'error'); return; }
+    const data = await res.json();
+    if (data.error) { toast(data.error, 'error'); return; }
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `playbook_${(data.incident && data.incident.id) || 'INC'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Playbook downloaded');
+  } catch (e) {
+    toast('Export failed: ' + e.message, 'error');
+  }
+}
+
 /* ===== V2 CONSTANTS ===== */
 const BASE = window.location.origin;
 const SEV_BADGE_CLASS = { medium: 'badge-medium', high: 'badge-high', critical: 'badge-critical' };
@@ -810,6 +1034,9 @@ function parseObs(raw) {
       target_user: o.target_user || '',
       target_department: o.target_department || '',
       raw_log_snippet: o.raw_log_snippet || '',
+      data_classification: o.data_classification || '',
+      regulatory_framework: o.regulatory_framework || '',
+      breach_notification_window: o.breach_notification_window || '',
       investigation_history: o.investigation_history || [],
       time_steps_elapsed: o.time_steps_elapsed || 0,
       max_steps: o.max_steps || 10,
@@ -895,6 +1122,42 @@ function updateAlertPanel(obs) {
   buildTimeline(obs.max_steps, obs.time_steps_elapsed);
   updateActionButtons(obs);
   updateInvPanel(obs.investigation_history || []);
+
+  // Compliance context
+  const compFramework = obs.regulatory_framework || '';
+  const compData = obs.data_classification || '';
+  const compWindow = obs.breach_notification_window || '';
+  const compSection = document.getElementById('complianceSection');
+
+  if (compSection) {
+    if (compFramework && compFramework !== 'None') {
+      compSection.classList.remove('hidden');
+      const fwEl = document.getElementById('compFramework');
+      const dtEl = document.getElementById('compDataType');
+      const wnEl = document.getElementById('compWindow');
+      if (fwEl) fwEl.textContent = compFramework;
+      if (dtEl) dtEl.textContent = compData;
+      if (wnEl) wnEl.textContent = compWindow;
+    } else {
+      compSection.classList.add('hidden');
+    }
+  }
+
+  // Compliance badges
+  const complianceArea = document.getElementById('complianceBadges');
+  if (complianceArea) {
+    let html = '';
+    const fw = obs.regulatory_framework || '';
+    const dc = obs.data_classification || '';
+    const bw = obs.breach_notification_window || '';
+    if (fw) {
+      const cls = fw.toLowerCase().replace('-','');
+      html += '<span class="compliance-badge compliance-badge--' + cls + '">' + fw + '</span>';
+    }
+    if (dc) html += ' <span class="compliance-info"><strong>Data:</strong> ' + dc + '</span>';
+    if (bw) html += ' <span class="compliance-info"><strong>Notify:</strong> ' + bw + '</span>';
+    complianceArea.innerHTML = html;
+  }
 }
 
 /* ===== INVESTIGATION PANEL ===== */
@@ -944,6 +1207,8 @@ function showOutcome(obs) {
       title = 'FALSE POSITIVE'; desc = 'Benign alert incorrectly contained'; cls = 'outcome--failure'; icon = '\u2718'; break;
     case 'false_negative':
       title = 'FALSE NEGATIVE'; desc = 'Real threat dismissed as benign'; cls = 'outcome--failure'; icon = '\uD83D\uDEA8'; break;
+    case 'compliance_breach':
+      title = 'COMPLIANCE BREACH'; desc = 'Regulated data compromised — breach notification required'; cls = 'outcome--failure'; icon = '\uD83D\uDED1'; break;
     case 'escalated_true_threat':
       title = 'ESCALATED'; desc = 'True threat sent to senior analyst'; cls = 'outcome--warning'; icon = '\u26A0'; break;
     case 'escalated_false_alarm':
@@ -1108,6 +1373,11 @@ async function resetEnv() {
     episodeActive = true;
     alertCounter++;
 
+    // Hide playbook button at episode start
+    const pbBtn = document.getElementById('playbookBtn');
+    if (pbBtn) pbBtn.classList.add('hidden');
+    document.getElementById('playbookExportBtn').style.display = 'none';
+
     updateAlertPanel(obs);
     setActionsEnabled(true);
 
@@ -1168,6 +1438,11 @@ async function doAction(actionId) {
       updateStats();
       drawChart();
 
+      // Show playbook export button on episode completion
+      const pbBtn = document.getElementById('playbookBtn');
+      if (pbBtn) pbBtn.classList.remove('hidden');
+      document.getElementById('playbookExportBtn').style.display = 'inline-block';
+
       if (Math.abs(obs.reward) >= 5) flashReward(obs.reward);
     }
   } catch (e) {
@@ -1187,35 +1462,35 @@ async function autoRun() {
   btn.textContent = 'Stop';
   toast('Auto-run: 5 episodes');
 
+  // Investigation action names — for invCount filtering
+  const INV_NAMES = new Set(['analyze_headers','query_siem','check_reputation','check_asset','analyze_payload','correlate_alerts']);
+  // Priority order: SIEM logs first (highest diagnostic value), then payload, reputation, headers, correlate, asset
+  const PRIORITY = [1, 4, 2, 0, 5, 3];
+
   for (let ep = 0; ep < 5 && autoRunning; ep++) {
     await resetEnv();
     await sleep(400);
 
+    // Track locally — never rely on obs.actions_taken from server
+    // (server may not return cumulative list consistently across all envs)
+    const localDone = new Set();
     let steps = 0;
+
     while (episodeActive && steps < 20 && autoRunning) {
-      const obs = currentObs;
-      const done = new Set(obs.actions_taken || []);
-      const invCount = [...done].filter(a => ['analyze_headers','query_siem','check_reputation','check_asset','analyze_payload','correlate_alerts'].includes(a)).length;
-      const sev = obs.severity;
+      const sev = currentObs ? currentObs.severity : 'medium';
+      const invCount = [...localDone].filter(a => INV_NAMES.has(a)).length;
 
       let action;
-      const priority = [1, 2, 0, 3, 4, 5];
-
-      if (invCount < 2) {
-        action = priority.find(a => !done.has(ACTION_NAMES[a]));
-        if (action === undefined) action = 9;
-      } else if (invCount >= 4) {
-        action = sev === 'critical' ? 7 : sev === 'high' ? 6 : 10;
+      if (invCount < 3) {
+        // Pick next uninvestigated action by priority
+        const nextId = PRIORITY.find(id => !localDone.has(ACTION_NAMES[id]));
+        action = nextId !== undefined ? nextId : (sev === 'critical' ? 7 : sev === 'high' ? 6 : 10);
       } else {
-        const remaining = obs.max_steps - obs.time_steps_elapsed;
-        if (remaining <= 2) {
-          action = sev === 'critical' ? 7 : sev === 'high' ? 6 : 10;
-        } else {
-          action = priority.find(a => !done.has(ACTION_NAMES[a]));
-          if (action === undefined) action = sev === 'critical' ? 7 : 10;
-        }
+        // 3 investigations gathered — make proportional terminal decision
+        action = sev === 'critical' ? 7 : sev === 'high' ? 6 : 10;
       }
 
+      localDone.add(ACTION_NAMES[action]);
       await doAction(action);
       await sleep(500);
       steps++;
@@ -1246,6 +1521,10 @@ function clearAll() {
   setActionsEnabled(false);
   document.querySelectorAll('.btn-action').forEach(b => b.classList.remove('btn-action--done'));
 
+  const pbBtnClear = document.getElementById('playbookBtn');
+  if (pbBtnClear) pbBtnClear.classList.add('hidden');
+  document.getElementById('playbookExportBtn').style.display = 'none';
+
   document.getElementById('terminal').innerHTML =
     '<div class="log-line"><span class="log-ts">[--:--:--]</span> <span class="log-tag log-tag-info">[SYS]</span> Session cleared</div>';
 
@@ -1268,6 +1547,8 @@ function clearAll() {
   document.getElementById('autoRunBtn').textContent = 'Auto-Run';
   toast('Session cleared');
 }
+
+/* (WebSocket handled by connectWS() above — single connection) */
 </script>
 </body>
 </html>

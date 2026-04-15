@@ -141,6 +141,13 @@ INSIDER_SCENARIOS = [
         "difficulty": "medium",
         "is_true_threat": True,
         "severity": "high",
+        "compliance": {
+            "framework": "GDPR",
+            "data_type": "PII",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": False,
+        },
         "mitre": {"tactic": "Collection", "technique": "T1078", "name": "Valid Accounts"},
         "alert": {
             "rule": "Anomalous Bulk Download -- Departing Employee",
@@ -235,6 +242,13 @@ INSIDER_SCENARIOS = [
         "difficulty": "medium",
         "is_true_threat": True,
         "severity": "high",
+        "compliance": {
+            "framework": "GDPR",
+            "data_type": "Internal",
+            "breach_notification_hours": 72,
+            "data_volume": "bulk",
+            "mandatory_escalation": True,
+        },
         "mitre": {"tactic": "Exfiltration", "technique": "T1052", "name": "Exfiltration Over Physical Medium"},
         "alert": {
             "rule": "Unauthorized Removable Media -- Sensitive Data Copy",

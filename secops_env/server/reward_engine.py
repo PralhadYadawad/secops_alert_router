@@ -36,6 +36,20 @@ SEVERITY_MULTIPLIER = {"medium": 1.0, "high": 1.5, "critical": 2.0}
 # Asset criticality multipliers for false positive penalties
 CRITICALITY_PENALTY = {"low": 0.6, "medium": 1.0, "high": 1.5, "critical": 2.0}
 
+# Compliance penalty multipliers — missing a threat with regulated data is far worse
+COMPLIANCE_FN_MULTIPLIER = {
+    "GDPR": 3.0,      # GDPR breach: fines up to 4% of global annual revenue
+    "HIPAA": 2.5,      # HIPAA: per-record fines for protected health information
+    "PCI-DSS": 2.0,    # PCI-DSS: card-brand fines and mandatory forensic audit
+    "SOX": 1.5,        # SOX: financial record integrity, legal exposure
+}
+
+DATA_VOLUME_MULTIPLIER = {
+    "massive": 2.0,    # >100K records
+    "bulk": 1.5,       # 1K-100K records
+    "single": 1.0,     # Individual record or no data volume context
+}
+
 # Minimum investigation actions before containment is allowed
 MIN_EVIDENCE_FOR_CONTAINMENT = 2
 
@@ -132,9 +146,17 @@ def compute_reward(
             base += evidence_bonus
             return base, "true_negative"
         else:
-            # Missed a real threat! Severity-scaled penalty
+            # Missed a real threat — severity-scaled, amplified by compliance obligations
             sev_mult = SEVERITY_MULTIPLIER.get(severity, 1.0)
-            return -25.0 * sev_mult, "false_negative"
+            compliance = scenario.get("compliance", {})
+            framework = compliance.get("framework", "")
+            comp_mult = COMPLIANCE_FN_MULTIPLIER.get(framework, 1.0)
+            vol_mult = DATA_VOLUME_MULTIPLIER.get(
+                compliance.get("data_volume", "single"), 1.0
+            )
+            # Compliance breach is distinct from generic false negative
+            outcome = "compliance_breach" if framework else "false_negative"
+            return -25.0 * sev_mult * comp_mult * vol_mult, outcome
 
     return 0.0, "unknown_action"
 
