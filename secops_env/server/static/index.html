@@ -1041,8 +1041,8 @@ function parseObs(raw) {
       time_steps_elapsed: o.time_steps_elapsed || 0,
       max_steps: o.max_steps || 10,
       actions_taken: o.actions_taken || [],
-      done: o.done || false,
-      reward: o.reward || 0,
+      done: raw.done ?? o.done ?? false,
+      reward: raw.reward ?? o.reward ?? 0,
       metadata: o.metadata || {}
     };
   }
