@@ -32,7 +32,7 @@ async def _do_broadcast(data_str: str) -> None:
             await ws.send_text(data_str)
         except Exception:
             dead.add(ws)
-    _ws_clients -= dead
+    _ws_clients.difference_update(dead)
 
 
 def _schedule_broadcast(obs_data: dict) -> None:
