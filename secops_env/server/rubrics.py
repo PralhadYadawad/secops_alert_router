@@ -38,8 +38,8 @@ except ModuleNotFoundError:
             ]
 
 
-# V2 reward range: worst = -50 (missed critical), best = +20 (perfect fast containment)
-MIN_RAW_REWARD = -50.0
+# V2 reward range: worst = -100 (compliance breach on critical), best = +20 (perfect fast containment)
+MIN_RAW_REWARD = -100.0
 MAX_RAW_REWARD = 20.0
 
 
@@ -47,7 +47,7 @@ class SecOpsTriageRubric(ExponentialDiscountingTrajectoryRubric):
     """Score triage trajectory with temporal discounting.
 
     Uses gamma=0.95 for short episodes (1-15 steps). Maps cumulative
-    reward from [-50, +20] to (0.01, 0.99).
+    reward from [-100, +20] to (0.01, 0.99).
     """
 
     def __init__(self, gamma: float = 0.95):

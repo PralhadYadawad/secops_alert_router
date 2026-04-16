@@ -65,6 +65,42 @@ TASKS = {
             "Breaching compliance-tagged data carries amplified penalties."
         ),
     },
+    "cloud-native": {
+        "num_episodes": 8,
+        "categories": ["cloud"],
+        "difficulties": ["medium", "medium-hard", "hard"],
+        "threat_ratio": 0.65,
+        "max_steps": 12,
+        "description": (
+            "Investigate AWS, Azure, and Kubernetes security alerts. "
+            "Distinguish authorized DevOps operations from IAM escalation, "
+            "CloudTrail tampering, SSRF credential theft, and container escapes."
+        ),
+    },
+    "hipaa-triage": {
+        "num_episodes": 8,
+        "categories": ["healthcare"],
+        "difficulties": ["medium", "medium-hard", "hard", "expert"],
+        "threat_ratio": 0.65,
+        "max_steps": 12,
+        "description": (
+            "Triage healthcare security alerts involving EHR systems and medical devices. "
+            "HIPAA false negatives carry a 2.5× compliance penalty. "
+            "Identify PHI breaches, ransomware, insider access anomalies, and IoMT compromise."
+        ),
+    },
+    "credential-access": {
+        "num_episodes": 8,
+        "categories": ["credential_access"],
+        "difficulties": ["easy-medium", "medium", "hard", "expert"],
+        "threat_ratio": 0.65,
+        "max_steps": 12,
+        "description": (
+            "Detect Active Directory credential attacks: Kerberoasting, AS-REP roasting, "
+            "DCSync, and Pass-the-Hash lateral movement. "
+            "DCSync/PtH carry SOX/PCI-DSS compliance multipliers."
+        ),
+    },
     "queue-triage": {
         "num_episodes": 3,
         "queue_size": 5,
@@ -134,10 +170,10 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
     accuracy = (correct_count + 0.5 * partial_count) / total
     decisive_rate = decisive_count / total if total > 0 else 0.0
 
-    # Speed: ratio of steps used vs max steps
+    # Speed: ratio of steps used vs max steps, clamped to [0, 1]
     avg_steps = sum(ep["steps"] for ep in episode_results) / total
     max_steps = episode_results[0].get("max_steps", 10)
-    speed = 1.0 - (avg_steps / max_steps)
+    speed = max(0.0, 1.0 - (avg_steps / max_steps))
 
     # Evidence quality: average investigation actions before resolution
     avg_evidence = sum(ep.get("investigation_count", 0) for ep in episode_results) / total
@@ -195,6 +231,72 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
             + 0.25 * evidence_quality
             + 0.30 * (1.0 - breach_rate)
             + 0.15 * decisive_rate
+        )
+
+    elif task_name == "cloud-native":
+        # Cloud alerts: authorised ops are common false positives — accuracy + evidence matter.
+        # Heavily penalise missing true threats (misconfiguration = breach, container escape = RCE).
+        fn_count = sum(
+            1 for ep in episode_results
+            if ep["outcome"] in {"false_negative", "timeout_breach", "compliance_breach"}
+        )
+        miss_rate = fn_count / total
+        fp_count = sum(1 for ep in episode_results if ep["outcome"] == "false_positive")
+        fpr = fp_count / total
+        score = (
+            0.30 * accuracy
+            + 0.25 * evidence_quality
+            + 0.25 * (1.0 - miss_rate)
+            + 0.10 * (1.0 - fpr)
+            + 0.10 * decisive_rate
+        )
+
+    elif task_name == "hipaa-triage":
+        # HIPAA: false negatives on PHI breaches are the worst outcome.
+        # Compliance breach rate drives a large portion of the score.
+        # Evidence quality critical — must investigate before deciding on EHR anomalies.
+        compliance_breach_count = sum(
+            1 for ep in episode_results if ep.get("outcome") in {"compliance_breach", "false_negative"}
+        )
+        breach_rate = compliance_breach_count / total
+        score = (
+            0.25 * accuracy
+            + 0.25 * evidence_quality
+            + 0.35 * (1.0 - breach_rate)
+            + 0.15 * decisive_rate
+        )
+
+    elif task_name == "credential-access":
+        # AD attacks: DCSync and PtH are high-stakes. Speed matters — attacker acts fast.
+        # Missing a credential attack (fn) = domain compromise within hours.
+        # False positives (blocking authorized SPN ops) have real business impact — penalise.
+        fn_count = sum(
+            1 for ep in episode_results
+            if ep["outcome"] in {"false_negative", "timeout_breach"}
+        )
+        miss_rate = fn_count / total
+        fp_count = sum(1 for ep in episode_results if ep["outcome"] == "false_positive")
+        fpr = fp_count / total
+        score = (
+            0.25 * accuracy
+            + 0.20 * speed
+            + 0.25 * (1.0 - miss_rate)
+            + 0.15 * (1.0 - fpr)
+            + 0.15 * decisive_rate
+        )
+
+    elif task_name == "queue-triage":
+        # Multi-alert queue: accuracy, speed (total budget), and completion rate matter.
+        # Queue episodes report per-slot outcomes aggregated into episode_results.
+        fn_count = sum(
+            1 for ep in episode_results if ep["outcome"] in {"false_negative", "timeout_breach", "compliance_breach"}
+        )
+        miss_rate = fn_count / total
+        score = (
+            0.30 * accuracy
+            + 0.25 * speed
+            + 0.25 * (1.0 - miss_rate)
+            + 0.20 * decisive_rate
         )
 
     else:

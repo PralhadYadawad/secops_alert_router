@@ -721,6 +721,15 @@ body > * { position: relative; z-index: 1; }
       <button class="tab" data-task="compliance-triage" onclick="selectTask(this)">
         <span class="diff diff-hard">HARD</span>compliance-triage
       </button>
+      <button class="tab" data-task="cloud-native" onclick="selectTask(this)">
+        <span class="diff diff-hard">HARD</span>Cloud-Native
+      </button>
+      <button class="tab" data-task="hipaa-triage" onclick="selectTask(this)">
+        <span class="diff diff-hard">HARD</span>HIPAA Triage
+      </button>
+      <button class="tab" data-task="credential-access" onclick="selectTask(this)">
+        <span class="diff diff-hard">HARD</span>Credential Access
+      </button>
       <button class="tab" data-task="queue-triage" onclick="selectTask(this)">
         <span class="diff diff-hard">M-HARD</span>queue-triage
       </button>
@@ -819,7 +828,7 @@ body > * { position: relative; z-index: 1; }
       <div class="card-body" style="padding-top:8px;">
         <div class="terminal" id="terminal">
           <div class="log-line"><span class="log-ts">[--:--:--]</span> <span class="log-tag log-tag-info">[SYS]</span> SecOps Alert Router V2 ready</div>
-          <div class="log-line"><span class="log-ts">[--:--:--]</span> <span class="log-tag log-tag-info">[SYS]</span> 40 MITRE ATT&amp;CK scenarios loaded</div>
+          <div class="log-line"><span class="log-ts">[--:--:--]</span> <span class="log-tag log-tag-info">[SYS]</span> 61 MITRE ATT&amp;CK scenarios loaded</div>
         </div>
       </div>
     </div>
@@ -988,7 +997,7 @@ function toast(msg, type = 'success') {
 function termLog(tag, msg, type = 'info') {
   const t = document.getElementById('terminal');
   const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
-  t.innerHTML += `<div class="log-line"><span class="log-ts">[${ts}]</span> <span class="log-tag log-tag-${type}">[${tag}]</span> ${msg}</div>`;
+  t.innerHTML += `<div class="log-line"><span class="log-ts">[${ts}]</span> <span class="log-tag log-tag-${type}">[${tag}]</span> ${escHtml(msg)}</div>`;
   t.scrollTop = t.scrollHeight;
 }
 
@@ -1170,10 +1179,10 @@ function updateAlertPanel(obs) {
     const bw = obs.breach_notification_window || '';
     if (fw) {
       const cls = fw.toLowerCase().replace('-','');
-      html += '<span class="compliance-badge compliance-badge--' + cls + '">' + fw + '</span>';
+      html += '<span class="compliance-badge compliance-badge--' + cls + '">' + escHtml(fw) + '</span>';
     }
-    if (dc) html += ' <span class="compliance-info"><strong>Data:</strong> ' + dc + '</span>';
-    if (bw) html += ' <span class="compliance-info"><strong>Notify:</strong> ' + bw + '</span>';
+    if (dc) html += ' <span class="compliance-info"><strong>Data:</strong> ' + escHtml(dc) + '</span>';
+    if (bw) html += ' <span class="compliance-info"><strong>Notify:</strong> ' + escHtml(bw) + '</span>';
     complianceArea.innerHTML = html;
   }
 }
@@ -1197,7 +1206,7 @@ function updateInvPanel(history) {
     div.innerHTML = `
       <div class="inv-entry-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
         <span class="inv-step">#${i + 1}</span>
-        <span class="inv-type">${entry.description || entry.action_name}</span>
+        <span class="inv-type">${escHtml(entry.description || entry.action_name || '')}</span>
         <span style="font-size:10px; color:var(--accent-cyan);">&#9660;</span>
       </div>
       <div class="inv-entry-body">${escHtml(entry.result || 'No data')}</div>

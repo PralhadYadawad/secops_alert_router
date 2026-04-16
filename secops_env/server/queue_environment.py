@@ -90,7 +90,7 @@ class QueueEnvironment(Environment):
         self._slots = []
         for i in range(self._queue_size):
             env = SecOpsEnvironment(
-                task_name="phishing-triage",
+                task_name=self._task_name,
                 seed=(seed + i) if seed else None,
             )
             obs = env.reset()

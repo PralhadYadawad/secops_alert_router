@@ -42,7 +42,7 @@ EVASION_SCENARIOS: list[dict] = [
             "analyze_payload": "deploy-agent.inf: standard INF referencing monitoring-agent-v3.2.msi from SCCM DP. Performs MSI silent install, service registration, config copy. All referenced files signed by internal PKI CA. No obfuscation, no encoded payloads, no external callbacks.",
             "correlate_alerts": "8 identical EDR alerts across IT-Admin workstation collection, all within SCCM maintenance window. Change ticket CHG-9102 documents rollout approved by IT Ops manager K. Patel on 2026-04-12. No anomalous network traffic, no lateral movement, no unexpected persistence.",
         },
-        "optimal_actions": ["investigate_alert", "verify_change_management", "confirm_sccm_deployment", "close_false_positive", "tune_detection_rule"],
+        "optimal_actions": [1, 5, 4, 10],
         "impact_if_missed": "Quarantining the SCCM deployment blocks a fleet-wide monitoring agent rollout (42 workstations). Escalation wastes 2-4 hours of IR team time and erodes trust in EDR alert fidelity.",
     },
     # evasion-002 — True threat: living-off-the-land (LOLBins) via certutil
@@ -83,7 +83,7 @@ EVASION_SCENARIOS: list[dict] = [
             "analyze_payload": "patch.b64 is base64-encoded PE. Decoded patch.exe (SHA-256: d4e5f6...a7b8) is 847KB unsigned. Static analysis: imports CreateRemoteThread, VirtualAllocEx, WriteProcessMemory (injection APIs). Strings reference Cobalt Strike beacon config. Performs whoami /all, nltest /dclist, then HTTPS callback to 185.220.101.44:8443 (Tor exit).",
             "correlate_alerts": "Phishing from it-helpdesk@corp-updates.com also sent to 11 other finance users. ws-fin-analyst-03 and ws-fin-analyst-11 show certutil attempts blocked by AppLocker. This host lacked updated AppLocker policy (GPO lag). No prior alerts on host.",
         },
-        "optimal_actions": ["investigate_alert", "isolate_endpoint", "kill_malicious_process", "block_c2_domain", "block_c2_ip", "reset_user_credentials", "scan_other_targeted_hosts", "escalate_to_incident_response"],
+        "optimal_actions": [1, 4, 2, 7, 6, 8],
         "impact_if_missed": "Cobalt Strike beacon on finance workstation with SAP ERP access. Attacker gains domain recon for lateral movement. 11 other finance users targeted — delayed response risks wider compromise and data exfiltration.",
     },
     # evasion-003 — True threat: fileless malware via PowerShell
@@ -96,6 +96,7 @@ EVASION_SCENARIOS: list[dict] = [
         "compliance": {
             "framework": "GDPR",
             "data_type": "PII",
+            "data_classification": "EU Personal Data",
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": True,
@@ -130,7 +131,7 @@ EVASION_SCENARIOS: list[dict] = [
             "analyze_payload": "Stage 1: VBA macro Shell() launches encoded PowerShell. Stage 2: 'jquery.min.js' is a PS script performing reflective DLL injection of Meterpreter reverse-HTTPS into svchost.exe. Stage 3: C2 to mail.corp-sharepoint-sync.com:443 via domain fronting. Registry run key for persistence. Entirely fileless after initial macro.",
             "correlate_alerts": "talent-hub.io sent 6 .docm emails to HR this week. ws-hr-coord-01 opened similar attachment yesterday but macros blocked by updated GPO. DNS logs: mail.corp-sharepoint-sync.com queried only from ws-hr-mgr-02. EDR: svchost.exe PID 4812 performing LDAP enumeration against DCs.",
         },
-        "optimal_actions": ["investigate_alert", "isolate_endpoint", "kill_injected_process", "remove_persistence", "block_c2_domains", "quarantine_macro_document", "reset_user_credentials", "scan_hr_department_hosts", "escalate_to_incident_response"],
+        "optimal_actions": [0, 1, 4, 7, 6],
         "impact_if_missed": "Meterpreter in memory with active C2. Attacker can exfiltrate employee PII and credentials. LDAP enumeration signals lateral movement. HR breach triggers regulatory notification. 5 other HR users received similar lures.",
     },
     # evasion-004 — True threat: renamed legitimate tool (PsExec -> svchost)
@@ -171,7 +172,7 @@ EVASION_SCENARIOS: list[dict] = [
             "analyze_payload": "PsExec targets dc-primary-01 with -s (SYSTEM) -d (non-interactive). Payload: net group 'Domain Admins' svc-deploy /add /domain — privilege escalation adding compromised service account to DA. PSEXESVC.exe installed on DC as SYSTEM confirms successful remote execution. Textbook AD privilege escalation.",
             "correlate_alerts": "Kill chain: (1) Dormant intern account brute-forced RDP into build server. (2) certutil LOLBin downloaded PsExec. (3) Renamed to svchost.exe. (4) WMI lateral execution to DC. (5) svc-deploy added to Domain Admins. Event 4728 confirms group modification. Active domain compromise in progress.",
         },
-        "optimal_actions": ["investigate_alert", "isolate_build_server", "isolate_intern_workstation", "remove_from_domain_admins", "disable_compromised_accounts", "block_lateral_movement_paths", "audit_domain_admin_group", "full_dc_forensic_analysis", "escalate_to_incident_response", "activate_ir_plan"],
+        "optimal_actions": [0, 1, 5, 7, 8],
         "impact_if_missed": "Attacker has Domain Admin via primary DC. Full AD compromise imminent — golden tickets, NTDS.dit exfil, domain-wide ransomware, or undetectable persistence. Critical severity requiring immediate containment.",
     },
     # evasion-005 — True threat: slow-and-low APT
@@ -184,6 +185,7 @@ EVASION_SCENARIOS: list[dict] = [
         "compliance": {
             "framework": "SOX",
             "data_type": "Financial",
+            "data_classification": "Financial Records",
             "breach_notification_hours": 48,
             "data_volume": "bulk",
             "mandatory_escalation": True,
@@ -218,7 +220,7 @@ EVASION_SCENARIOS: list[dict] = [
             "analyze_payload": "C2 via DNS TXT queries carrying encoded tasking; responses AES-256-encrypted. Exfiltration uses steganographic PNG images via HTTPS to status-check.cloud/sync. Files accessed: board minutes, M&A summary, CFO calendar. Total exfil ~380KB in small increments below DLP byte-threshold alerts.",
             "correlate_alerts": "No prior alerts — first detection after 12 days. EDR anomaly engine flagged DNS pattern after accumulating baseline data. executive-briefing.com also used against 2 other Fortune 500 companies (FS-ISAC TLP:RED). TTPs match APT29 (Cozy Bear): slow-and-low, business-hours beaconing, steganographic exfil, M&A targeting.",
         },
-        "optimal_actions": ["investigate_alert", "isolate_endpoint", "remove_scheduled_task_persistence", "block_c2_domain_and_ip", "forensic_memory_capture", "audit_accessed_documents", "reset_user_credentials", "notify_executive_leadership", "engage_threat_intelligence", "activate_ir_plan", "assess_regulatory_notification"],
+        "optimal_actions": [1, 2, 4, 7, 6],
         "impact_if_missed": "APT with 12-day foothold has exfiltrated M&A intelligence worth billions. Continued access monitors CFO communications and board decisions. Leaked Project Falcon details enable insider trading or deal sabotage. APT29 attribution suggests nation-state economic espionage. SEC regulatory exposure for material non-public information.",
     },
 ]

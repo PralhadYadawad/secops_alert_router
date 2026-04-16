@@ -38,7 +38,7 @@ DDOS_SCENARIOS: list[dict] = [
             "analyze_payload": "Sampled 500 requests: all carry valid session tokens or new session establishment. Referrer headers match marketing email tracking links and social-media redirects. User-Agent strings are diverse modern browsers. No payload anomalies.",
             "correlate_alerts": "No IDS/IPS alerts. No firewall drops. WAF block rate normal (0.3%). Marketing Ops ticket MKT-4821 confirms Summer Sale campaign launched today. Previous campaign (Black Friday 2025) showed similar 350% spike.",
         },
-        "optimal_actions": ["investigate_alert", "correlate_with_business_context", "close_false_positive"],
+        "optimal_actions": [5, 2, 3, 10],
         "impact_if_missed": "Unnecessary DDoS scrubbing activation would add latency to legitimate shoppers during a revenue-critical marketing window, potentially costing $120K+ in lost sales.",
     },
     # ddos-002 — Benign: CDN misconfiguration causing alerts
@@ -77,7 +77,7 @@ DDOS_SCENARIOS: list[dict] = [
             "analyze_payload": "Request patterns identical to normal catalog browsing. No amplification vectors. Volume is the normal edge rate (29K/s) now passing through to origin instead of being served from cache.",
             "correlate_alerts": "Related: origin-api-prod-03 CPU_CRITICAL, OOM_KILL x3, catalog-service 502 rate >10%. Change ticket CHG-7842 shows v2.14.0 deployment. No IDS/IPS alerts.",
         },
-        "optimal_actions": ["investigate_alert", "identify_root_cause_config_change", "rollback_deployment", "close_false_positive"],
+        "optimal_actions": [1, 3, 5, 10],
         "impact_if_missed": "Activating DDoS scrubbing would not help since the traffic is legitimate. The fix is rolling back the cache-header regression. Delay risks extended origin outage for all catalog API consumers.",
     },
     # ddos-003 — True threat: volumetric SYN flood
@@ -90,6 +90,7 @@ DDOS_SCENARIOS: list[dict] = [
         "compliance": {
             "framework": "PCI-DSS",
             "data_type": "PCI",
+            "data_classification": "Payment Processing Infrastructure",
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": True,
@@ -125,7 +126,7 @@ DDOS_SCENARIOS: list[dict] = [
             "analyze_payload": "Packets contain no payload (SYN-only). Source ports sequentially incrementing per source IP — automated generation. IP ID fields zero across all packets (raw socket). No legitimate traffic produces this signature.",
             "correlate_alerts": "Correlated: dns-auth-01 SERVFAIL spike, web-fe-prod-01 timeouts, edge-gw-01 conntrack exhaustion, BGP flap warnings. Threat Intel: coordinated DDoS campaign targeting financial sector this week (FS-ISAC bulletin TLP:AMBER-2026-0414).",
         },
-        "optimal_actions": ["investigate_alert", "activate_ddos_scrubbing", "blackhole_spoofed_ranges", "enable_syn_proxy", "notify_upstream_isp", "escalate_to_incident_response"],
+        "optimal_actions": [0, 2, 3, 6, 9],
         "impact_if_missed": "Complete loss of internet-facing services: DNS, web, and API endpoints. Estimated downtime cost $45K/min. Potential BGP session drops causing extended recovery. Customer SLA violations across all tiers.",
     },
     # ddos-004 — True threat: application-layer HTTP flood
@@ -138,6 +139,7 @@ DDOS_SCENARIOS: list[dict] = [
         "compliance": {
             "framework": "PCI-DSS",
             "data_type": "PCI",
+            "data_classification": "Cardholder Data Environment",
             "breach_notification_hours": 72,
             "data_volume": "massive",
             "mandatory_escalation": True,
@@ -173,7 +175,7 @@ DDOS_SCENARIOS: list[dict] = [
             "analyze_payload": "POST /auth/login payloads contain randomized valid credential pairs — credential-stuffing combined with DDoS. Search queries include DB-probing patterns (SELECT *, UNION SELECT, OR 1=1) suggesting concurrent SQLi recon. Payload entropy confirms automated generation.",
             "correlate_alerts": "Correlated: WAF SQLi detection on /search (4,200 blocks/min), auth brute-force alert, PostgreSQL connection exhaustion, Redis failover, ES heap pressure. Same residential proxy ASN set used in attack on competitor (INC-2026-0398) last week.",
         },
-        "optimal_actions": ["investigate_alert", "enable_rate_limiting", "block_residential_proxy_ranges", "enable_captcha_challenge", "scale_backend_resources", "activate_waf_emergency_rules", "escalate_to_incident_response"],
+        "optimal_actions": [0, 2, 4, 6, 9],
         "impact_if_missed": "Complete auth outage preventing all logins. DB exhaustion cascading to all API services. Credential-stuffing may cause account takeovers. SQLi probes risk data exfiltration if WAF bypass achieved. Blast radius: 2.4M active users.",
     },
 ]

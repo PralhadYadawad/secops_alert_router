@@ -10,6 +10,10 @@ from typing import Any, Optional
 
 from openenv.core.env_server import Environment
 
+from .logging_config import get_logger
+
+logger = get_logger("environment")
+
 from ..models import SecOpsAction, SecOpsObservation, SecOpsState
 from .alert_generator import AlertGenerator, ALERT_TYPE_NAMES, SEVERITY_NAMES
 from .investigation_engine import get_investigation_result
@@ -93,6 +97,18 @@ class SecOpsEnvironment(Environment):
             self.rubric.reset()
 
         self._scenario = self._alert_gen.generate()
+        logger.info(
+            "Episode reset: scenario=%s task=%s severity=%s threat=%s",
+            self._scenario.get("id", "?"),
+            self._task_name,
+            self._scenario.get("severity", "?"),
+            self._scenario.get("is_true_threat", "?"),
+            extra={
+                "scenario_id": self._scenario.get("id", ""),
+                "task_name": self._task_name,
+                "severity": self._scenario.get("severity", ""),
+            },
+        )
         self._done = False
 
         alert = self._scenario.get("alert", {})
@@ -201,6 +217,32 @@ class SecOpsEnvironment(Environment):
         }
 
         self._done = done
+
+        if done:
+            logger.info(
+                "Episode ended: scenario=%s outcome=%s reward=%.2f steps=%d",
+                self._state.scenario_id, status,
+                self._state.cumulative_reward, self._state.step_count,
+                extra={
+                    "scenario_id": self._state.scenario_id,
+                    "outcome": status,
+                    "reward": self._state.cumulative_reward,
+                    "step": self._state.step_count,
+                },
+            )
+        elif action_id in RISKY_ACTIONS or action_id in {ESCALATE_ACTION, RESOLVE_ACTION}:
+            logger.info(
+                "Decisive action: %s on scenario=%s (step %d) -> %s",
+                action_name, self._state.scenario_id,
+                self._state.step_count, status,
+                extra={
+                    "action": action_name,
+                    "scenario_id": self._state.scenario_id,
+                    "step": self._state.step_count,
+                    "outcome": status,
+                },
+            )
+
         obs = self._make_observation(
             reward=reward, done=done, status=status, inv_result=inv_result
         )

@@ -11,6 +11,7 @@ Each scenario is a dict containing:
 - optimal_actions and impact metadata
 """
 
+import copy
 import random
 from typing import Optional
 
@@ -21,6 +22,9 @@ from .lateral import LATERAL_SCENARIOS
 from .exfil import EXFIL_SCENARIOS
 from .ddos import DDOS_SCENARIOS
 from .evasion import EVASION_SCENARIOS
+from .cloud import CLOUD_SCENARIOS
+from .healthcare import HEALTHCARE_SCENARIOS
+from .credential_access import CREDENTIAL_ACCESS_SCENARIOS
 
 ALL_SCENARIOS = (
     PHISHING_SCENARIOS
@@ -30,6 +34,9 @@ ALL_SCENARIOS = (
     + EXFIL_SCENARIOS
     + DDOS_SCENARIOS
     + EVASION_SCENARIOS
+    + CLOUD_SCENARIOS
+    + HEALTHCARE_SCENARIOS
+    + CREDENTIAL_ACCESS_SCENARIOS
 )
 
 # Index by category and difficulty
@@ -85,7 +92,7 @@ def pick_scenario(
     if not pool:
         pool = ALL_SCENARIOS
 
-    scenario = dict(rng.choice(pool))
+    scenario = copy.deepcopy(rng.choice(pool))
 
     if threat_ratio is not None:
         scenario["is_true_threat"] = rng.random() < threat_ratio

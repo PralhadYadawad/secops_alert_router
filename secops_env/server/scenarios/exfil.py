@@ -7,7 +7,7 @@ EXFIL_SCENARIOS = [
         "category": "data_exfiltration",
         "difficulty": "easy-medium",
         "is_true_threat": False,
-        "severity": "low",
+        "severity": "medium",
         "mitre": {"tactic": "Exfiltration", "technique": "T1567", "name": "Exfiltration Over Web Service"},
         "alert": {
             "rule": "Large Outbound Transfer to Cloud Storage",
@@ -44,7 +44,7 @@ EXFIL_SCENARIOS = [
             "analyze_payload": "Backup contents: encrypted database dumps and file server snapshots. All data encrypted with AES-256 before upload. Destination is the authorized corporate backup container with immutability policy enabled.",
             "correlate_alerts": "Backup schedule documented in ITIL CMDB under CI-BACKUP-001. Weekly full backup approved in change record CHG-PERM-0003 (permanent change). Size consistent with historical trend. No anomalous processes on SRV-BACKUP-01.",
         },
-        "optimal_actions": ["verify_backup_schedule", "classify_benign", "close_alert"],
+        "optimal_actions": [5, 3, 0, 10],
         "impact_if_missed": "No impact. Escalating a routine corporate backup wastes SOC resources and may trigger unnecessary incident procedures.",
     },
     # BENIGN 2 -- Large email with legitimate attachments
@@ -53,7 +53,7 @@ EXFIL_SCENARIOS = [
         "category": "data_exfiltration",
         "difficulty": "easy",
         "is_true_threat": False,
-        "severity": "low",
+        "severity": "medium",
         "mitre": {"tactic": "Exfiltration", "technique": "T1567", "name": "Exfiltration Over Web Service"},
         "alert": {
             "rule": "Outbound Email -- Large Attachment to External Recipient",
@@ -88,7 +88,7 @@ EXFIL_SCENARIOS = [
             "analyze_payload": "Attachment: AcmeInc_Patent_Filing_Draft_v3.pdf -- patent application draft for USPTO filing. Labeled 'Attorney-Client Privileged.' Content consistent with prior versions (v1 sent Mar 15, v2 sent Mar 28). No embedded macros or suspicious metadata.",
             "correlate_alerts": "Legal matter tracker LM-2026-0087: 'Patent Filing -- Project Phoenix Sensor Array.' Active matter, rachel.foster is lead in-house counsel. Baker McKenzie engagement letter on file. Filing deadline: April 18, 2026.",
         },
-        "optimal_actions": ["verify_trusted_recipient", "classify_benign", "close_alert"],
+        "optimal_actions": [2, 5, 4, 10],
         "impact_if_missed": "No impact. Blocking or escalating would delay a time-sensitive patent filing and disrupt the attorney-client workflow.",
     },
     # THREAT 1 -- DNS tunneling exfiltration
@@ -104,6 +104,7 @@ EXFIL_SCENARIOS = [
             "breach_notification_hours": 72,
             "data_volume": "massive",
             "mandatory_escalation": True,
+            "data_classification": "EU Personal Data",
         },
         "mitre": {"tactic": "Exfiltration", "technique": "T1048", "name": "Exfiltration Over Alternative Protocol"},
         "alert": {
@@ -143,7 +144,7 @@ EXFIL_SCENARIOS = [
             "analyze_payload": "Base64-decoded subdomain samples reveal fragments of SQL query results -- customer records from the production database. Data includes names, emails, addresses, and hashed payment tokens. Estimated 105MB exfiltrated over 6 hours at ~48 kbps throughput. Tunneling tool: dnscat2 with encryption disabled (data visible in queries).",
             "correlate_alerts": "Full attack chain confirmed: phishing (WS-MKTG-0041) -> mimikatz/PtH -> RDP brute force -> svc_backup compromise -> service account pivot to DB-PROD-01 -> data dump -> DNS tunneling exfiltration from APP-API-01. C2 IP 185.220.101.44 seen in lateral-002 and lateral-005. Data from customers table matches DB-PROD-01 dump in lateral-004.",
         },
-        "optimal_actions": ["block_dns_domain", "block_c2_ip_at_perimeter", "isolate_endpoint", "sinkhole_dns", "preserve_evidence", "quantify_data_loss", "activate_breach_notification", "escalate_incident_response"],
+        "optimal_actions": [2, 0, 5, 6, 7],
         "impact_if_missed": "105+ MB of customer PII actively exfiltrated via DNS tunneling to attacker-controlled infrastructure. Continued exfiltration risks full database dump. Mandatory breach notification and regulatory penalties under GDPR/CCPA.",
     },
     # THREAT 2 -- Large upload to personal cloud storage
@@ -191,7 +192,7 @@ EXFIL_SCENARIOS = [
             "analyze_payload": "atlas-core-export.tar.gz contains the complete atlas-core repository: 847 source files, 23 configuration files with API keys (redacted in repo but present in local config), CI/CD pipeline definitions, and proprietary ML model weights (trade secret). Total: 3.1 GB of company IP.",
             "correlate_alerts": "Manager d.nakamura flagged marcus.reed as resignation risk on 2026-04-09 (competing offer from TechRival Inc). marcus.reed cloned full atlas-core repo at 21:35 (unusual -- normally works on feature branches). Archive created at 21:40, upload started at 21:47 to personal Gmail account. Pattern matches insider exfiltration playbook.",
         },
-        "optimal_actions": ["block_personal_cloud_access", "isolate_endpoint", "disable_account", "preserve_evidence", "notify_hr_legal", "revoke_api_keys", "escalate_to_tier3"],
+        "optimal_actions": [2, 1, 5, 7, 8, 6],
         "impact_if_missed": "Complete proprietary source code repository including trade secret ML model weights exfiltrated to personal cloud, potentially shared with a direct competitor. Loss of competitive advantage and possible trade secret litigation.",
     },
     # THREAT 3 -- Encrypted archive exfiltration via HTTPS
@@ -207,6 +208,7 @@ EXFIL_SCENARIOS = [
             "breach_notification_hours": 48,
             "data_volume": "bulk",
             "mandatory_escalation": True,
+            "data_classification": "Financial Records and Audit Trail",
         },
         "mitre": {"tactic": "Exfiltration", "technique": "T1048", "name": "Exfiltration Over Alternative Protocol"},
         "alert": {
@@ -247,7 +249,7 @@ EXFIL_SCENARIOS = [
             "analyze_payload": "Archive source directory C:\\Users\\carlos.mendez\\Finance\\ contains: Q1 consolidated financial statements, M&A due diligence documents for Project Titan (confidential acquisition target), board presentation decks, revenue projections through 2028. AES-256 encryption with header encryption (-mhe=on) prevents DLP content inspection. Total: 1.8 GB of material nonpublic financial information.",
             "correlate_alerts": "carlos.mendez accessed 230 files from the Finance restricted share between 22:00-23:00 (10x normal daily rate). 7z installed on workstation 2 days ago (not in approved software list). HR records: carlos.mendez under investigation by Internal Audit for expense irregularities since 2026-03-20. Pattern suggests deliberate exfiltration of M&A data -- potential for insider trading or sale to third parties.",
         },
-        "optimal_actions": ["block_destination_domain", "isolate_endpoint", "disable_account", "preserve_evidence", "notify_hr_legal_compliance", "notify_sec_regulatory", "engage_forensics", "escalate_incident_response"],
+        "optimal_actions": [2, 1, 5, 6, 7, 8],
         "impact_if_missed": "Material nonpublic financial information including M&A details exfiltrated. If used for insider trading, triggers SEC enforcement action. If sold, causes catastrophic deal leakage for Project Titan acquisition, potential billions in lost deal value and severe regulatory consequences.",
     },
 ]

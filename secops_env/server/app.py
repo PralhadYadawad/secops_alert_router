@@ -1,4 +1,12 @@
-"""FastAPI application for the SecOps Alert Triage Environment."""
+"""FastAPI application for the SecOps Alert Triage Environment.
+
+Security controls are configured via environment variables:
+    SECOPS_API_KEY         — Enable API key auth (unset = auth disabled)
+    SECOPS_CORS_ORIGINS    — Comma-separated allowed CORS origins
+    SECOPS_RATE_LIMIT      — Max requests/minute/IP (default: 60)
+    SECOPS_WS_MAX_CONNS    — Max concurrent WebSocket connections (default: 50)
+    SECOPS_PRODUCTION      — "true" to disable /docs and /redoc
+"""
 
 import asyncio
 import json
@@ -6,7 +14,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from openenv.core.env_server import create_app
 
@@ -14,10 +23,20 @@ from ..models import SecOpsAction, SecOpsObservation
 from .secops_environment import SecOpsEnvironment
 from .playbook_generator import generate_playbook
 from .alert_generator import AlertGenerator
-from .tasks import TASKS
+from .tasks import TASKS, TASK_NAMES
+from .logging_config import get_logger
+from .security import (
+    API_KEY,
+    CORS_ORIGINS,
+    IS_PRODUCTION,
+    AuthMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    verify_ws_api_key,
+    ws_manager,
+)
 
-# ── WebSocket broadcast state ──────────────────────────────────────────────────
-_ws_clients: set[WebSocket] = set()
+logger = get_logger("app")
 
 # ── Last completed episode — updated by BroadcastingSecOpsEnvironment ─────────
 LAST_EPISODE: dict = {}
@@ -27,17 +46,8 @@ _ENV_INSTANCE: Optional["BroadcastingSecOpsEnvironment"] = None
 
 
 async def _do_broadcast(data_str: str) -> None:
-    """Push a JSON string to all connected WebSocket clients.
-
-    Dead connections are collected and removed after each broadcast round.
-    """
-    dead: set[WebSocket] = set()
-    for ws in _ws_clients:
-        try:
-            await ws.send_text(data_str)
-        except Exception:
-            dead.add(ws)
-    _ws_clients.difference_update(dead)
+    """Push a JSON string to all connected WebSocket clients via the manager."""
+    await ws_manager.broadcast(data_str)
 
 
 def _schedule_broadcast(obs_data: dict) -> None:
@@ -50,7 +60,6 @@ def _schedule_broadcast(obs_data: dict) -> None:
         loop = asyncio.get_running_loop()
         loop.create_task(_do_broadcast(json.dumps(obs_data, default=str)))
     except RuntimeError:
-        # No running loop — skip broadcast (non-async context, e.g. tests)
         pass
 
 
@@ -93,7 +102,6 @@ class BroadcastingSecOpsEnvironment(SecOpsEnvironment):
         obs = super().step(action, **kwargs)
 
         if obs.done:
-            # Capture episode data for /playbook endpoint
             LAST_EPISODE.clear()
             LAST_EPISODE.update({
                 "scenario": self._scenario,
@@ -109,26 +117,66 @@ class BroadcastingSecOpsEnvironment(SecOpsEnvironment):
 
 
 # ── FastAPI app ────────────────────────────────────────────────────────────────
-def _env_factory() -> BroadcastingSecOpsEnvironment:
-    """Return the module-level singleton environment instance.
 
-    OpenEnv calls the factory on every /reset and /step request. Using a
-    singleton ensures episode state (step count, actions taken, scenario)
-    persists across the full request-response cycle of each episode.
-    """
+def _env_factory() -> BroadcastingSecOpsEnvironment:
+    """Return the module-level singleton environment instance."""
     global _ENV_INSTANCE
     if _ENV_INSTANCE is None:
         _ENV_INSTANCE = BroadcastingSecOpsEnvironment()
     return _ENV_INSTANCE
 
 
+# Conditionally disable OpenAPI docs in production
+_docs_url = None if IS_PRODUCTION else "/docs"
+_redoc_url = None if IS_PRODUCTION else "/redoc"
+_openapi_url = None if IS_PRODUCTION else "/openapi.json"
+
 app = create_app(
     _env_factory, SecOpsAction, SecOpsObservation,
     env_name="secops_env",
 )
 
-# Serve dashboard UI at root
+# Override OpenAPI URLs in production
+if IS_PRODUCTION:
+    app.docs_url = None
+    app.redoc_url = None
+    app.openapi_url = None
+
+# ── Middleware stack (order matters: last added = first executed) ──────────────
+
+# 1. Security headers on every response
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 2. Rate limiting per IP
+app.add_middleware(RateLimitMiddleware)
+
+# 3. CORS — only if origins are configured
+if CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST"],
+        allow_headers=["X-API-Key", "Content-Type"],
+    )
+
+# 4. API key authentication (no-op if SECOPS_API_KEY is unset)
+app.add_middleware(AuthMiddleware)
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
 _STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/health")
+async def health_check() -> dict:
+    """Health check endpoint for orchestrators and load balancers."""
+    return {
+        "status": "healthy",
+        "auth_enabled": API_KEY is not None,
+        "ws_connections": ws_manager.connection_count,
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -142,19 +190,46 @@ async def dashboard() -> HTMLResponse:
 async def ws_stream(websocket: WebSocket) -> None:
     """WebSocket endpoint: stream all environment observations to connected clients.
 
-    Clients connect and receive a JSON push on every reset() and step().
-    Useful for watching inference.py runs live in the dashboard.
+    Security controls:
+    - API key validation (via header or query param) when SECOPS_API_KEY is set
+    - Connection limit enforcement via WSConnectionManager
+    - Dead connection cleanup on disconnect
     """
+    client_ip = websocket.client.host if websocket.client else "unknown"
+
+    # Auth check
+    if not await verify_ws_api_key(websocket):
+        logger.warning("WebSocket auth failed from %s", client_ip, extra={"client_ip": client_ip})
+        await websocket.close(code=4001, reason="Authentication required")
+        return
+
+    # Connection limit check
+    if not ws_manager.can_accept():
+        logger.warning(
+            "WebSocket connection limit reached (%d), rejecting %s",
+            ws_manager.connection_count, client_ip,
+            extra={"client_ip": client_ip, "ws_connections": ws_manager.connection_count},
+        )
+        await websocket.close(code=4002, reason="Connection limit reached")
+        return
+
     await websocket.accept()
-    _ws_clients.add(websocket)
+    ws_manager.connect(websocket)
+    logger.info(
+        "WebSocket connected: %s (total: %d)",
+        client_ip, ws_manager.connection_count,
+        extra={"client_ip": client_ip, "ws_connections": ws_manager.connection_count},
+    )
     try:
-        # Keep connection alive — handle incoming pings, ignore content
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        _ws_clients.discard(websocket)
+        pass
     except Exception:
-        _ws_clients.discard(websocket)
+        pass
+    finally:
+        ws_manager.disconnect(websocket)
+        logger.info("WebSocket disconnected: %s (total: %d)", client_ip, ws_manager.connection_count)
 
 
 @app.get("/playbook")
@@ -163,17 +238,44 @@ async def get_playbook(fmt: str = "json") -> dict:
 
     Generates a deterministic incident response playbook from the agent's
     action trajectory. No LLM required.
-
-    Args:
-        fmt: Response format. "json" (default) returns the playbook dict.
-             Other values are reserved for future Markdown support.
-
-    Returns:
-        Playbook dict or error dict if no episode has been completed yet.
     """
     if not LAST_EPISODE:
         return {"error": "No completed episode yet. Run a full episode (to done=True) first."}
     return generate_playbook(**LAST_EPISODE)
+
+
+# ── Input validation endpoint override ────────────────────────────────────────
+
+@app.post("/reset")
+async def validated_reset(body: dict = None) -> dict:
+    """Reset with input validation on task_name.
+
+    Rejects unrecognized task names with a 400 instead of silently
+    falling back to 'phishing-triage'.
+    """
+    body = body or {}
+    task_name = body.get("task_name")
+    if task_name and task_name not in TASKS:
+        logger.warning("Invalid task_name rejected: '%s'", task_name, extra={"task_name": task_name})
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown task_name '{task_name}'. Valid tasks: {TASK_NAMES}",
+        )
+    env = _env_factory()
+    obs = env.reset(task_name=task_name)
+    return {
+        "observation": obs.model_dump(),
+        "reward": 0.0,
+        "done": False,
+    }
+
+
+logger.info(
+    "SecOps server initialized: auth=%s, cors=%s, production=%s",
+    "enabled" if API_KEY else "disabled",
+    len(CORS_ORIGINS) > 0,
+    IS_PRODUCTION,
+)
 
 
 def main() -> None:

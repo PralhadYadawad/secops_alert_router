@@ -19,6 +19,9 @@ ALERT_TYPE_NAMES = {
     "data_exfiltration": "Data Exfiltration",
     "ddos": "DDoS",
     "evasion": "Adversarial Evasion",
+    "cloud": "Cloud-Native",
+    "healthcare": "Healthcare / HIPAA",
+    "credential_access": "Credential Access",
 }
 
 SEVERITY_NAMES = {"medium": "Medium", "high": "High", "critical": "Critical"}

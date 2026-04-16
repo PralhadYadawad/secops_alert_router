@@ -7,8 +7,8 @@ INSIDER_SCENARIOS = [
         "category": "insider_threat",
         "difficulty": "medium",
         "is_true_threat": False,
-        "severity": "low",
-        "mitre": {"tactic": "Initial Access", "technique": "T1078", "name": "Valid Accounts"},
+        "severity": "medium",
+        "mitre": {"tactic": "Privilege Escalation", "technique": "T1078", "name": "Valid Accounts"},
         "alert": {
             "rule": "After-Hours Logon Detected",
             "description": "User authenticated to workstation outside normal business hours (02:14 AM local time).",
@@ -43,7 +43,7 @@ INSIDER_SCENARIOS = [
             "analyze_payload": "Files accessed: Q1_Revenue_Forecast.xlsx, Budget_Adjustments.docx, GL_Export_April.csv. All within Finance SharePoint scope. No encrypted archives created. No external uploads.",
             "correlate_alerts": "Badge swipe at Building-A main entrance at 02:10 AM matches logon time. Calendar shows 'Q1 Close Deadline' event for 2026-04-12. Manager (j.park) approved overtime request on 04-11.",
         },
-        "optimal_actions": ["classify_benign", "add_context_note", "close_alert"],
+        "optimal_actions": [5, 2, 3, 10],
         "impact_if_missed": "No real impact. Escalating would waste SOC analyst time and create unnecessary friction with the Finance team.",
     },
     # BENIGN 2 -- IT admin performing scheduled maintenance
@@ -52,7 +52,7 @@ INSIDER_SCENARIOS = [
         "category": "insider_threat",
         "difficulty": "medium",
         "is_true_threat": False,
-        "severity": "low",
+        "severity": "medium",
         "mitre": {"tactic": "Persistence", "technique": "T1098", "name": "Account Manipulation"},
         "alert": {
             "rule": "Privileged Account Group Modification",
@@ -88,7 +88,7 @@ INSIDER_SCENARIOS = [
             "analyze_payload": "Change ticket CHG-20260411-0042 approved by manager k.williams on 2026-04-11. Scope: temporary DA elevation for svc_patchmgmt to deploy KB5035853 across domain. Elevation removed after patching completed.",
             "correlate_alerts": "WSUS logs confirm patch deployment activity from svc_patchmgmt between 01:35-03:40 UTC. 214 hosts patched. No other privilege modifications detected.",
         },
-        "optimal_actions": ["verify_change_ticket", "classify_benign", "close_alert"],
+        "optimal_actions": [5, 4, 2, 10],
         "impact_if_missed": "No impact. False escalation would delay legitimate patch deployment and erode IT Operations trust in the SOC.",
     },
     # BENIGN 3 -- Employee accessing files for a legitimate project
@@ -97,8 +97,8 @@ INSIDER_SCENARIOS = [
         "category": "insider_threat",
         "difficulty": "medium",
         "is_true_threat": False,
-        "severity": "low",
-        "mitre": {"tactic": "Collection", "technique": "T1078", "name": "Valid Accounts"},
+        "severity": "medium",
+        "mitre": {"tactic": "Collection", "technique": "T1039", "name": "Data from Network Shared Drive"},
         "alert": {
             "rule": "Bulk File Access -- Sensitive Repository",
             "description": "User accessed 47 files in the Engineering shared drive within a 15-minute window.",
@@ -131,7 +131,7 @@ INSIDER_SCENARIOS = [
             "analyze_payload": "All 47 files reside in project-atlas repository to which aisha.patel has authorized read access via AD group ENG-ATLAS-DEVS. File types: Python source, Kubernetes manifests, Markdown docs. No archives created.",
             "correlate_alerts": "Jira ticket ATLAS-1187 assigned to aisha.patel: 'Onboard to Atlas codebase and review architecture.' Ticket created 2026-04-10 by tech lead d.nakamura. Sprint board confirms active assignment.",
         },
-        "optimal_actions": ["verify_project_membership", "classify_benign", "close_alert"],
+        "optimal_actions": [5, 4, 2, 10],
         "impact_if_missed": "No impact. Escalation would slow down a legitimate engineering onboarding task and generate a false positive.",
     },
     # THREAT 1 -- Data hoarding before resignation
@@ -147,6 +147,7 @@ INSIDER_SCENARIOS = [
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": False,
+            "data_classification": "EU Personal Data",
         },
         "mitre": {"tactic": "Collection", "technique": "T1078", "name": "Valid Accounts"},
         "alert": {
@@ -186,7 +187,7 @@ INSIDER_SCENARIOS = [
             "analyze_payload": "Downloaded files include: client account lists, revenue forecasts, 2026 marketing campaign decks, product roadmap PDFs. kevin.murphy has read access to Sales share but NOT authorized for Marketing or Product shares -- accessed via inherited group permissions not yet revoked.",
             "correlate_alerts": "DLP alert: 2.3 GB upload to personal OneDrive at 14:44. No prior DLP alerts for this user. HR confirmed resignation and competitor move. Manager (l.thompson) was not notified of cross-department access.",
         },
-        "optimal_actions": ["isolate_endpoint", "disable_account", "preserve_evidence", "notify_hr_legal", "block_cloud_sync", "escalate_to_tier3"],
+        "optimal_actions": [2, 1, 5, 7, 8],
         "impact_if_missed": "Departing employee exfiltrates client lists, revenue data, and product roadmaps to a competitor, causing significant competitive harm and potential regulatory violations.",
     },
     # THREAT 2 -- Privilege escalation attempt
@@ -232,7 +233,7 @@ INSIDER_SCENARIOS = [
             "analyze_payload": "PowerShell transcript shows three attempts to add james.wright to Domain Admins via svc_helpdesk, then one attempt to elevate svc_helpdesk to Enterprise Admins. All failed due to insufficient privileges. Clear intent to gain persistent domain-level access.",
             "correlate_alerts": "No change ticket for this activity. svc_helpdesk password found in plaintext in //helpdesk-share/scripts/deploy.ps1 (accessible to all IT Support staff). No manager approval on file. james.wright badge shows he was alone in Building-B server room area at 23:40.",
         },
-        "optimal_actions": ["disable_service_account", "disable_user_account", "isolate_endpoint", "rotate_credentials", "preserve_evidence", "escalate_to_tier3", "notify_management"],
+        "optimal_actions": [1, 4, 5, 8, 7],
         "impact_if_missed": "Malicious insider gains Domain Admin privileges, enabling unrestricted access to all corporate systems, data theft, ransomware deployment, or persistent backdoor installation.",
     },
     # THREAT 3 -- Unauthorized USB data copy
@@ -248,6 +249,7 @@ INSIDER_SCENARIOS = [
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": True,
+            "data_classification": "EU Personal Data",
         },
         "mitre": {"tactic": "Exfiltration", "technique": "T1052", "name": "Exfiltration Over Physical Medium"},
         "alert": {
@@ -287,7 +289,7 @@ INSIDER_SCENARIOS = [
             "analyze_payload": "84 files from project-phoenix: design specifications, patent draft documents, test results, and a ZIP archive containing source code. All classified as 'Company Confidential.' Total 4.7 GB copied to unencrypted USB.",
             "correlate_alerts": "Badge records show li.zhang was the only person in the R&D lab at 20:30. No after-hours access request filed. DLP migration ticket INC-20260405-0118 confirms enforcement gap. li.zhang's LinkedIn profile updated yesterday with 'Open to Work' status.",
         },
-        "optimal_actions": ["isolate_endpoint", "disable_account", "preserve_evidence", "notify_hr_legal", "physical_security_usb_recovery", "escalate_to_tier3", "enable_dlp_enforcement"],
+        "optimal_actions": [1, 2, 5, 7, 8],
         "impact_if_missed": "Classified R&D intellectual property -- including patent drafts and source code -- is physically exfiltrated, potentially reaching a competitor and causing millions in lost IP value.",
     },
 ]

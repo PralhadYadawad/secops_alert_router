@@ -24,7 +24,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 # Reward normalization for [START]/[STEP]/[END] log output
-MIN_REWARD = -50.0
+MIN_REWARD = -100.0
 MAX_REWARD = 20.0
 
 
@@ -104,34 +104,80 @@ def build_llm_prompt(obs) -> str:
         "- Investigate at least twice before containment (actions 6-8)",
         "- Higher severity = faster containment needed",
         "- Use investigation results to decide: is this a real threat?",
-        "- If evidence points to benign, resolve (10). If ambiguous, escalate (9).",
-        "- Don't repeat investigation actions already marked [DONE]",
+        "- If evidence shows malicious activity (C2, exfiltration, malware, lateral movement, credential abuse), CONTAIN immediately:",
+        "    6=block_source for network-based threats, 7=isolate_host for host compromise, 8=disable_account for credential abuse",
+        "- If evidence points to benign/legitimate activity, resolve (10)",
+        "- If evidence is ambiguous or insufficient, escalate (9)",
+        "- NEVER repeat an action marked [DONE] — pick a DIFFERENT number",
         "",
-        "Respond with ONLY a single number (0-10).",
+        "Respond with ONLY a single number (0-10). Do NOT pick a [DONE] action.",
     ])
 
     return "\n".join(parts)
 
 
+def _is_duplicate_investigation(action_id: int, obs) -> bool:
+    """Check if an investigation action has already been taken this episode."""
+    if action_id not in SAFE_ACTIONS:
+        return False
+    return ACTION_NAMES.get(action_id, "") in set(obs.actions_taken)
+
+
+def _parse_action_from_text(text: str) -> int:
+    """Extract a valid action ID (0-10) from LLM response text."""
+    import re
+    # Find all integers in the text, check for valid action IDs
+    for match in re.finditer(r'\b(\d+)\b', text):
+        val = int(match.group(1))
+        if 0 <= val <= 10:
+            return val
+    # Fallback: scan for any digit sequence (LLM might just say "10" with no word boundary)
+    for match in re.finditer(r'(\d+)', text):
+        val = int(match.group(1))
+        if 0 <= val <= 10:
+            return val
+    return -1
+
+
 def get_llm_action(obs) -> int:
-    """Get action from LLM, falling back to heuristic on failure."""
+    """Get action from LLM with duplicate-action filtering.
+
+    If the LLM picks an already-completed investigation action, retries
+    once with an explicit correction prompt. Falls back to heuristic if
+    the retry also fails or returns a duplicate.
+    """
     if llm_client is None:
         return get_heuristic_action(obs)
     try:
         prompt = build_llm_prompt(obs)
+        messages = [{"role": "user", "content": prompt}]
         response = llm_client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=5,
-            temperature=0.1,
+            model=MODEL_NAME, messages=messages, max_tokens=5, temperature=0.1,
         )
         text = response.choices[0].message.content.strip()
-        for char in text:
-            if char.isdigit():
-                val = int(char)
-                if 0 <= val <= 10:
-                    return val
-        return get_heuristic_action(obs)
+        action_id = _parse_action_from_text(text)
+
+        if action_id < 0:
+            return get_heuristic_action(obs)
+
+        # If LLM picked a duplicate investigation, retry once with correction
+        if _is_duplicate_investigation(action_id, obs):
+            done_list = ", ".join(obs.actions_taken)
+            messages.append({"role": "assistant", "content": text})
+            messages.append({"role": "user", "content": (
+                f"Action {action_id} ({ACTION_NAMES[action_id]}) is already done. "
+                f"Already completed: [{done_list}]. "
+                "Pick a DIFFERENT number (0-10)."
+            )})
+            retry = llm_client.chat.completions.create(
+                model=MODEL_NAME, messages=messages, max_tokens=5, temperature=0.2,
+            )
+            retry_id = _parse_action_from_text(retry.choices[0].message.content.strip())
+            if retry_id >= 0 and not _is_duplicate_investigation(retry_id, obs):
+                return retry_id
+            return get_heuristic_action(obs)
+
+        return action_id
     except Exception:
         return get_heuristic_action(obs)
 
@@ -212,12 +258,12 @@ def get_heuristic_action(obs) -> int:
 
     # Phase 3: Decision with escalating decisiveness
     def _contain(sev):
-        """Pick proportional containment action based on severity."""
+        """Pick proportional containment action matching reward_engine's proportional map."""
         if sev == "critical":
-            return 7  # isolate_host
+            return 7  # isolate_host — proportional for critical
         elif sev == "high":
-            return 6  # block_source
-        return 8  # disable_account
+            return 7  # isolate_host — proportional for high
+        return 6  # block_source — proportional for medium
 
     # After 4+ investigations or running out of time: must decide now
     if inv_count >= 4 or steps_remaining <= 2:

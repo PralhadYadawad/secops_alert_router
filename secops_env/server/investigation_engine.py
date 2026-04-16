@@ -86,22 +86,26 @@ def compute_investigation_value(
 
 
 def format_investigation_for_observation(history: list[dict]) -> str:
-    """Format accumulated investigation results for display in the observation.
+    """Format accumulated investigation results for the LLM prompt.
 
     Args:
-        history: List of investigation result dicts.
+        history: List of investigation result dicts with 'description' and 'result' keys.
 
     Returns:
-        Formatted multi-line string for the LLM prompt.
+        Formatted multi-line string summarizing investigation findings.
     """
     if not history:
         return "No investigation data collected yet."
 
     lines = []
     for i, entry in enumerate(history, 1):
-        lines.append(f"[Step {i}] {entry['description']}:")
-        for line in entry["result"].strip().split("\n"):
-            lines.append(f"  {line}")
+        desc = entry.get("description", entry.get("action_name", f"Investigation {i}"))
+        result = entry.get("result", "")
+        lines.append(f"[Step {i}] {desc}:")
+        if isinstance(result, str):
+            for line in result.strip().split("\n"):
+                lines.append(f"  {line}")
         lines.append("")
 
     return "\n".join(lines)
+

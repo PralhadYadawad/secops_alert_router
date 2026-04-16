@@ -51,7 +51,7 @@ PHISHING_SCENARIOS: list[dict] = [
                 "3 similar HubSpot alerts in 30 days for Marketing - all false positive.\n"
                 "No credential-theft or malware alerts for amartinez."),
         },
-        "optimal_actions": [1, 2, 4], "impact_if_missed": "low",
+        "optimal_actions": [1, 2, 4, 10], "impact_if_missed": "low",
     },
     # ---- 2  BENIGN: Internal IT password-rotation reminder ----
     {
@@ -97,7 +97,7 @@ PHISHING_SCENARIOS: list[dict] = [
                 "142 identical alerts from quarterly batch. IT Change Ticket CHG-8832.\n"
                 "No anomalies."),
         },
-        "optimal_actions": [1, 2, 4], "impact_if_missed": "low",
+        "optimal_actions": [1, 2, 4, 10], "impact_if_missed": "low",
     },
     # ---- 3  BENIGN: Salesforce marketing campaign ----
     {
@@ -146,7 +146,7 @@ PHISHING_SCENARIOS: list[dict] = [
                 "8 identical Dreamforce alerts in Sales dept in 24h.\n"
                 "Company is active Salesforce customer (SF-2024-112). No threat alerts."),
         },
-        "optimal_actions": [1, 2, 4], "impact_if_missed": "low",
+        "optimal_actions": [1, 2, 4, 10], "impact_if_missed": "low",
     },
     # ---- 4  THREAT: Credential harvesting - fake Microsoft 365 login ----
     {
@@ -158,6 +158,7 @@ PHISHING_SCENARIOS: list[dict] = [
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": True,
+            "data_classification": "Financial Records",
         },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.002",
                   "name": "Phishing: Spearphishing Link"},
@@ -219,6 +220,7 @@ PHISHING_SCENARIOS: list[dict] = [
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": True,
+            "data_classification": "Cardholder Data",
         },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.001",
                   "name": "Phishing: Spearphishing Attachment"},
@@ -284,6 +286,7 @@ PHISHING_SCENARIOS: list[dict] = [
             "breach_notification_hours": 48,
             "data_volume": "single",
             "mandatory_escalation": True,
+            "data_classification": "Financial Records",
         },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.002",
                   "name": "Phishing: Spearphishing Link"},
@@ -352,6 +355,7 @@ PHISHING_SCENARIOS: list[dict] = [
             "breach_notification_hours": 72,
             "data_volume": "bulk",
             "mandatory_escalation": True,
+            "data_classification": "EU Personal Data",
         },
         "mitre": {"tactic": "Initial Access", "technique": "T1566.002",
                   "name": "Phishing: Spearphishing Link"},

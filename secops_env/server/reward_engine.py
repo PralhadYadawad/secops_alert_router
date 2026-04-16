@@ -9,6 +9,9 @@ Computes rewards based on:
 """
 
 from .investigation_engine import compute_investigation_value
+from .logging_config import get_logger
+
+logger = get_logger("reward")
 
 # Action categories
 SAFE_ACTIONS = {0, 1, 2, 3, 4, 5}
@@ -74,6 +77,10 @@ def compute_reward(
 
     # === INVESTIGATION ACTIONS (0-5) ===
     if action_id in SAFE_ACTIONS:
+        # Timeout check BEFORE duplicate check — duplicates must not bypass termination
+        if step_count >= max_steps:
+            return _timeout_reward(is_threat, severity), _timeout_status(is_threat)
+
         if action_name in actions_taken:
             return -2.0, "duplicate_action"
 
@@ -83,13 +90,9 @@ def compute_reward(
 
         # Base cost + info gain reward
         # Good investigation: -0.5 (net useful), bad: -1.5 (wasted time)
-        reward = -1.0 + (info_value * 1.5)  # range: -0.85 to +0.5
+        reward = -1.0 + (info_value * 1.5)  # range: -1.0 to +0.5
 
         status = "useful_investigation" if info_value >= 0.5 else "low_value_investigation"
-
-        # Check timeout after investigation
-        if step_count >= max_steps:
-            return _timeout_reward(is_threat, severity), _timeout_status(is_threat)
 
         return reward, status
 
@@ -156,7 +159,20 @@ def compute_reward(
             )
             # Compliance breach is distinct from generic false negative
             outcome = "compliance_breach" if framework else "false_negative"
-            return -25.0 * sev_mult * comp_mult * vol_mult, outcome
+            raw_penalty = -25.0 * sev_mult * comp_mult * vol_mult
+            clamped = max(raw_penalty, -100.0)  # floor at -100 for rubric normalization
+            if framework:
+                logger.warning(
+                    "Compliance breach: %s severity=%s framework=%s penalty=%.1f",
+                    scenario.get("id", "?"), severity, framework, clamped,
+                    extra={
+                        "scenario_id": scenario.get("id", ""),
+                        "severity": severity,
+                        "outcome": outcome,
+                        "reward": clamped,
+                    },
+                )
+            return clamped, outcome
 
     return 0.0, "unknown_action"
 

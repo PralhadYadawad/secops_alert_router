@@ -3,7 +3,7 @@ name: secops_env
 description: "Cybersecurity SOC Alert Triage V2 — AI agent investigates realistic MITRE ATT&CK-mapped alerts using SIEM logs, threat intel, and asset context to contain threats or dismiss false positives"
 type: space
 runtime: fastapi
-app: server.app:app
+app: secops_env.server.app:app
 port: 8000
 
 tasks:
@@ -28,6 +28,15 @@ tasks:
   - name: compliance-triage
     description: "Hard: Triage alerts on regulated data (GDPR/HIPAA/PCI-DSS) — breaching compliance-tagged incidents carries amplified penalties"
     difficulty: hard
+  - name: cloud-native
+    description: "Hard: Investigate AWS/Azure/K8s alerts — distinguish authorized DevOps ops from IAM escalation, CloudTrail tampering, SSRF, and container escapes"
+    difficulty: hard
+  - name: hipaa-triage
+    description: "Hard: Triage healthcare security alerts (EHR anomalies, ransomware, IoMT) — HIPAA false negatives carry 2.5x compliance penalty"
+    difficulty: hard
+  - name: credential-access
+    description: "Expert: Detect Kerberoasting, AS-REP roasting, DCSync, and Pass-the-Hash — SOX/PCI-DSS compliance multipliers on high-value attacks"
+    difficulty: expert
   - name: queue-triage
     description: "Medium-Hard: Triage a 5-alert backlog and prioritize critical threats across concurrent incidents"
     difficulty: medium-hard
