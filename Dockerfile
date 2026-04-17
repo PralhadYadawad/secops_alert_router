@@ -1,7 +1,7 @@
 # SecOps Alert Router — Production Dockerfile
 # Hardened: non-root user, pinned image, health check, minimal attack surface
 
-FROM python:3.11-slim@sha256:4fefca94c45f0e33f2e2a76e07d3dc29aae55a6e4b1f74a506c6511278c8b1af AS base
+FROM python:3.11-slim AS base
 
 # Prevent Python from writing .pyc files and enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1 \
