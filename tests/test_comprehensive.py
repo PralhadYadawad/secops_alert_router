@@ -60,7 +60,7 @@ class TestAugmentedPool:
             assert bid in pool_ids, f"Base scenario {bid} missing from pool"
 
     def test_clone_count(self, pool):
-        clones = [s for s in pool if "_aug" in s["id"]]
+        clones = [s for s in pool if s.get("_augmented")]
         assert len(clones) >= 100
 
     @pytest.mark.parametrize("field", [
@@ -69,9 +69,9 @@ class TestAugmentedPool:
     ])
     def test_critical_fields_preserved(self, pool, base_map, field):
         for s in pool:
-            if "_aug" not in s["id"]:
+            if not s.get("_augmented"):
                 continue
-            base_id = s["id"].split("_aug")[0]
+            base_id = s.get("_base_id", "")
             base = base_map.get(base_id)
             if base:
                 assert s.get(field) == base.get(field), (
@@ -80,9 +80,9 @@ class TestAugmentedPool:
 
     def test_investigation_data_preserved(self, pool, base_map):
         for s in pool:
-            if "_aug" not in s["id"]:
+            if not s.get("_augmented"):
                 continue
-            base_id = s["id"].split("_aug")[0]
+            base_id = s.get("_base_id", "")
             base = base_map.get(base_id)
             if not base:
                 continue
@@ -92,9 +92,9 @@ class TestAugmentedPool:
 
     def test_compliance_preserved(self, pool, base_map):
         for s in pool:
-            if "_aug" not in s["id"]:
+            if not s.get("_augmented"):
                 continue
-            base_id = s["id"].split("_aug")[0]
+            base_id = s.get("_base_id", "")
             base = base_map.get(base_id)
             if not base or not base.get("compliance"):
                 continue
@@ -109,7 +109,7 @@ class TestAugmentedPool:
     def test_pool_stats(self, pool):
         stats = get_pool_stats(pool)
         assert stats["total"] == 183
-        assert stats["base"] == 61
+        assert stats["originals"] == 61
         assert stats["augmented"] == 122
 
 
