@@ -13,8 +13,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from secops_env.models import SecOpsAction
+from secops_env.models import SecOpsAction, QueueAction
 from secops_env.server.secops_environment import SecOpsEnvironment
+from secops_env.server.queue_environment import QueueEnvironment
 from secops_env.server.reward_engine import ACTION_NAMES, SAFE_ACTIONS
 from secops_env.server.tasks import TASKS, TASK_NAMES, grade_task
 from secops_env.server.investigation_engine import format_investigation_for_observation
@@ -305,9 +306,11 @@ def run_inference():
         max_steps = task_config["max_steps"]
         episode_results = []
 
-        env = SecOpsEnvironment(
-            task_name=task_name, max_steps=max_steps
-        )
+        is_queue = task_name == "queue-triage"
+        if is_queue:
+            env = QueueEnvironment(task_name=task_name)
+        else:
+            env = SecOpsEnvironment(task_name=task_name, max_steps=max_steps)
 
         for ep in range(num_episodes):
             obs = env.reset(seed=42 + ep)
@@ -317,9 +320,12 @@ def run_inference():
             step_rewards = []
             step_num = 0
 
-            while not obs.done and step_num < max_steps * 2:
-                action_id = get_llm_action(obs)
-                action = SecOpsAction(action_id=action_id)
+            step_limit = (task_config.get("max_total_steps", max_steps * 2) * 2) if is_queue else max_steps * 2
+            while not obs.done and step_num < step_limit:
+                # For queue-triage, get the active alert obs for LLM prompting
+                llm_obs = obs.active_alert if is_queue and hasattr(obs, "active_alert") else obs
+                action_id = get_llm_action(llm_obs)
+                action = QueueAction(action_id=action_id, alert_index=0) if is_queue else SecOpsAction(action_id=action_id)
                 obs = env.step(action)
                 step_num += 1
 
@@ -328,7 +334,8 @@ def run_inference():
                 step_rewards.append(normalized)
 
                 error_str = "null"
-                status = obs.metadata.get("status", "")
+                meta = (obs.metadata or {}) if not is_queue else {}
+                status = meta.get("status", "")
                 if status in ("duplicate_action", "procedure_violation"):
                     error_str = status
 
@@ -338,8 +345,12 @@ def run_inference():
                     f"reward={normalized:.2f} done={done_str} error={error_str}"
                 )
 
-            outcome = obs.metadata.get("status", "unknown")
-            success = outcome in ("true_positive", "true_negative", "escalated_true_threat", "timeout_benign")
+            if is_queue:
+                outcome = "queue_complete" if all(s.get("done") for s in (obs.queue_summary or [])) else "queue_timeout"
+                success = outcome == "queue_complete"
+            else:
+                outcome = (obs.metadata or {}).get("status", "unknown")
+                success = outcome in ("true_positive", "true_negative", "escalated_true_threat", "timeout_benign")
 
             episode_results.append({
                 "reward": obs.metadata.get("cumulative_reward", obs.reward),

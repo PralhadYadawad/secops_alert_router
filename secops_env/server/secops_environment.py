@@ -85,6 +85,7 @@ class SecOpsEnvironment(Environment):
         self._done = False
         self._state = SecOpsState()
         self._episode_history: list[bool] = []
+        self._inv_cache: dict = {}  # stores noised investigation results keyed by action_name
         self.reset()
 
     def reset(
@@ -112,6 +113,7 @@ class SecOpsEnvironment(Environment):
             },
         )
         self._done = False
+        self._inv_cache = {}
 
         alert = self._scenario.get("alert", {})
         source = self._scenario.get("source", {})
@@ -202,6 +204,8 @@ class SecOpsEnvironment(Environment):
         if action_id in SAFE_ACTIONS and action_name not in self._state.actions_taken:
             self._state.actions_taken.append(action_name)
             self._state.investigation_count += 1
+            if inv_result:
+                self._inv_cache[action_name] = inv_result
         elif action_name not in self._state.actions_taken:
             self._state.actions_taken.append(action_name)
 
@@ -271,21 +275,26 @@ class SecOpsEnvironment(Environment):
         target = self._scenario.get("target", {})
         mitre = self._scenario.get("mitre", {})
 
-        # Build investigation history for observation
+        # Build investigation history using noised cache; fall back to raw template only
+        # if the cache entry is missing (e.g. observation built before step completed).
+        from .investigation_engine import ACTION_DESCRIPTIONS
         inv_history = []
         for act_name in self._state.actions_taken:
             if act_name in {ACTION_NAMES[i] for i in SAFE_ACTIONS}:
-                data = self._scenario.get("investigate", {}).get(act_name, "")
-                if data:
-                    act_id = next(
-                        (k for k, v in ACTION_NAMES.items() if v == act_name), -1
-                    )
-                    from .investigation_engine import ACTION_DESCRIPTIONS
-                    inv_history.append({
-                        "action_name": act_name,
-                        "description": ACTION_DESCRIPTIONS.get(act_id, act_name),
-                        "result": data,
-                    })
+                cached = self._inv_cache.get(act_name)
+                if cached:
+                    inv_history.append(cached)
+                else:
+                    raw = self._scenario.get("investigate", {}).get(act_name, "")
+                    if raw:
+                        act_id = next(
+                            (k for k, v in ACTION_NAMES.items() if v == act_name), -1
+                        )
+                        inv_history.append({
+                            "action_name": act_name,
+                            "description": ACTION_DESCRIPTIONS.get(act_id, act_name),
+                            "result": raw,
+                        })
 
         return SecOpsObservation(
             alert_id=f"ALT-{self._state.scenario_id}",

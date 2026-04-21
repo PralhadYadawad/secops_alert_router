@@ -10,6 +10,7 @@ from typing import Any, Optional
 from openenv.core.env_server import Environment
 
 from ..models import QueueAction, QueueObservation, SecOpsAction, SecOpsObservation
+from .rubrics import SecOpsTriageRubric
 from .secops_environment import SecOpsEnvironment
 from .tasks import TASKS
 
@@ -45,7 +46,7 @@ class QueueEnvironment(Environment):
             max_total_steps: Total step budget across all alert slots.
             seed: Optional random seed for reproducibility.
         """
-        super().__init__()
+        super().__init__(rubric=SecOpsTriageRubric())
         task_config = TASKS.get(task_name, TASKS.get("queue-triage", {}))
         self._queue_size = task_config.get("queue_size", queue_size)
         self._max_total_steps = task_config.get("max_total_steps", max_total_steps)

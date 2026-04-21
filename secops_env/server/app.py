@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from fastapi import HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from openenv.core.env_server import create_app
@@ -79,9 +79,11 @@ class BroadcastingSecOpsEnvironment(SecOpsEnvironment):
 
         Supports live task switching: if task_name differs from the current
         task, the alert generator is re-configured before generating the new
-        scenario. This allows the dashboard task tabs to take effect at runtime
-        without restarting the server.
+        scenario. Unknown task names fall back to phishing-triage with a warning.
         """
+        if task_name and task_name not in TASKS:
+            logger.warning("Unknown task_name '%s', falling back to phishing-triage", task_name)
+            task_name = "phishing-triage"
         if task_name and task_name != self._task_name:
             task_config = TASKS.get(task_name, TASKS["phishing-triage"])
             self._task_name = task_name
@@ -243,31 +245,6 @@ async def get_playbook(fmt: str = "json") -> dict:
         return {"error": "No completed episode yet. Run a full episode (to done=True) first."}
     return generate_playbook(**LAST_EPISODE)
 
-
-# ── Input validation endpoint override ────────────────────────────────────────
-
-@app.post("/reset")
-async def validated_reset(body: dict = None) -> dict:
-    """Reset with input validation on task_name.
-
-    Rejects unrecognized task names with a 400 instead of silently
-    falling back to 'phishing-triage'.
-    """
-    body = body or {}
-    task_name = body.get("task_name")
-    if task_name and task_name not in TASKS:
-        logger.warning("Invalid task_name rejected: '%s'", task_name, extra={"task_name": task_name})
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown task_name '{task_name}'. Valid tasks: {TASK_NAMES}",
-        )
-    env = _env_factory()
-    obs = env.reset(task_name=task_name)
-    return {
-        "observation": obs.model_dump(),
-        "reward": 0.0,
-        "done": False,
-    }
 
 
 logger.info(

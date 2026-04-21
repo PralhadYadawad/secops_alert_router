@@ -941,6 +941,7 @@ function connectWS() {
       try {
         const data = JSON.parse(e.data);
         if (data.alert_id) {
+          // Standard SecOpsObservation broadcast
           const obs = parseObs({observation: data});
           currentObs = obs;
           updateAlertPanel(obs);
@@ -948,6 +949,14 @@ function connectWS() {
             showOutcome(obs);
             const pbBtn = document.getElementById('playbookExportBtn');
             if (pbBtn) pbBtn.style.display = 'inline-block';
+          }
+        } else if (data.queue_summary) {
+          // QueueObservation broadcast — update panel using the active alert detail
+          const activeObs = parseObs({observation: data.active_alert || {}});
+          currentObs = activeObs;
+          updateAlertPanel(activeObs);
+          if (data.done) {
+            showOutcome(activeObs);
           }
         }
       } catch(err) { /* ignore non-obs pings */ }
@@ -1082,6 +1091,9 @@ function selectTask(btn) {
 }
 
 /* ===== ACTION BUTTONS ===== */
+// Must be declared before updateActionButtons() which references it
+const SAFE_ACTIONS_NAMES = new Set(['analyze_headers','query_siem','check_reputation','check_asset','analyze_payload','correlate_alerts']);
+
 function setActionsEnabled(enabled) {
   document.querySelectorAll('.btn-action').forEach(b => {
     const aid = parseInt(b.dataset.action);
@@ -1122,8 +1134,7 @@ function updateActionButtons(obs) {
   }
 }
 
-// Set of investigation action names for quick lookup
-const SAFE_ACTIONS_NAMES = new Set(['analyze_headers','query_siem','check_reputation','check_asset','analyze_payload','correlate_alerts']);
+// SAFE_ACTIONS_NAMES declared above setActionsEnabled() to avoid TDZ ReferenceError
 
 /* ===== STEP TIMELINE ===== */
 function buildTimeline(maxSteps, currentStep) {
@@ -1523,7 +1534,7 @@ function _autoRunThreatSignal(obs) {
 
   // Severity bias: critical/high raises bar for benign classification
   const sev = obs.severity || 'medium';
-  if (sev === 'critical') return threatScore >= 0 && benignScore === 0 || threatScore > benignScore;
+  if (sev === 'critical') return (history.length > 0 && benignScore === 0) || threatScore > benignScore;
   if (sev === 'high') return threatScore > benignScore;
   return threatScore > benignScore + 1; // medium: need clear threat signal
 }
