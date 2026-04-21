@@ -72,7 +72,7 @@ def compute_reward(
     """
     action_name = ACTION_NAMES[action_id]
     severity = scenario.get("severity", "medium")
-    is_threat = scenario["is_true_threat"]
+    is_threat = scenario.get("is_true_threat", False)
     criticality = scenario.get("target", {}).get("criticality", "medium")
 
     # === INVESTIGATION ACTIONS (0-5) ===

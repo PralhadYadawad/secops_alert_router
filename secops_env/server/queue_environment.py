@@ -90,9 +90,13 @@ class QueueEnvironment(Environment):
         """
         self._slots = []
         for i in range(self._queue_size):
+            # Give inner envs a step budget large enough that they never fire their
+            # own timeout penalty — the outer _max_total_steps budget controls
+            # episode termination, preventing double-penalty.
             env = SecOpsEnvironment(
                 task_name=self._task_name,
                 seed=(seed + i) if seed else None,
+                max_steps=self._max_total_steps,
             )
             obs = env.reset()
             self._slots.append({

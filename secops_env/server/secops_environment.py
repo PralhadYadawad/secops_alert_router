@@ -98,6 +98,8 @@ class SecOpsEnvironment(Environment):
         if self.rubric is not None:
             self.rubric.reset()
 
+        # Intentional read-only alias: alert_gen reads this list to compute win-streak
+        # difficulty scaling. It never modifies the list — env owns all appends.
         self._alert_gen._episode_history = self._episode_history
         self._scenario = self._alert_gen.generate()
         logger.info(

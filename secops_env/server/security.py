@@ -143,11 +143,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     Headers added:
     - X-Content-Type-Options: nosniff
-    - X-Frame-Options: DENY
     - X-XSS-Protection: 1; mode=block
     - Referrer-Policy: strict-origin-when-cross-origin
-    - Content-Security-Policy: restrictive default policy
+    - Content-Security-Policy: restrictive policy with frame-ancestors for HF Spaces
     - Permissions-Policy: restrict sensitive APIs
+
+    Note: X-Frame-Options is intentionally omitted. HuggingFace Spaces embeds
+    apps inside an iframe — setting X-Frame-Options: DENY would cause a blank
+    page. Framing is controlled via CSP frame-ancestors instead.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
