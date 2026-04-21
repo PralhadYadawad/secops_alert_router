@@ -2,9 +2,16 @@
 
 Returns realistic investigation data (SIEM logs, threat intel, asset info)
 from scenario templates when the agent performs investigation actions.
+
+Investigation results are optionally wrapped with realistic ambiguity
+(partial data, conflicting signals, red herrings) via investigation_noise.
+Noise is controlled by the SECOPS_NOISE_LEVEL environment variable
+(float 0.0–1.0, default 0.20). Set to 0.0 to disable.
 """
 
 from typing import Optional
+
+from .investigation_noise import inject_noise
 
 # Maps action_id -> investigation data key in scenario["investigate"]
 ACTION_TO_INVESTIGATE_KEY = {
@@ -29,12 +36,18 @@ ACTION_DESCRIPTIONS = {
 def get_investigation_result(
     scenario: dict,
     action_id: int,
+    step_count: int = 0,
 ) -> Optional[dict]:
     """Return investigation data for a given action on a scenario.
+
+    Applies realistic noise injection (partial results, conflicting signals,
+    red herrings) at the rate configured by SECOPS_NOISE_LEVEL (default 20%).
+    Noise is seeded from scenario_id + step_count for full reproducibility.
 
     Args:
         scenario: The active scenario dict.
         action_id: Investigation action (0-5).
+        step_count: Current episode step (used for noise seeding).
 
     Returns:
         Dict with 'action_name', 'description', and 'result' text,
@@ -46,6 +59,14 @@ def get_investigation_result(
 
     investigate_data = scenario.get("investigate", {})
     result_text = investigate_data.get(key, "No data available for this investigation type.")
+
+    # Apply ambiguity noise — makes genuine reasoning more valuable than keyword matching
+    result_text = inject_noise(
+        action_name=key,
+        result=result_text,
+        scenario_id=scenario.get("id", "unknown"),
+        step_count=step_count,
+    )
 
     return {
         "action_name": key,

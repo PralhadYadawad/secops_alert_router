@@ -40,3 +40,6 @@ tasks:
   - name: queue-triage
     description: "Medium-Hard: Triage a 5-alert backlog and prioritize critical threats across concurrent incidents"
     difficulty: medium-hard
+  - name: auto-scaling-triage
+    description: "Auto-Scaling: Difficulty dynamically scales across categories from Easy through Expert depending on the consecutive agent win rate"
+    difficulty: auto

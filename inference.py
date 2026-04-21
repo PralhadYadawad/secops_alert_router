@@ -20,7 +20,7 @@ from secops_env.server.tasks import TASKS, TASK_NAMES, grade_task
 from secops_env.server.investigation_engine import format_investigation_for_observation
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-70B-Instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 # Reward normalization for [START]/[STEP]/[END] log output
@@ -106,7 +106,8 @@ def build_llm_prompt(obs) -> str:
         "- Use investigation results to decide: is this a real threat?",
         "- If evidence shows malicious activity (C2, exfiltration, malware, lateral movement, credential abuse), CONTAIN immediately:",
         "    6=block_source for network-based threats, 7=isolate_host for host compromise, 8=disable_account for credential abuse",
-        "- If evidence points to benign/legitimate activity, resolve (10)",
+        "- BE PARANOID ABOUT PHISHING: Mismatched reply-to addresses, suspicious domains, failed SPF/DKIM, or generic urgency often indicate REAL attacks. Do NOT brush these off as benign.",
+        "- If evidence points to benign/legitimate activity confidently, resolve (10)",
         "- If evidence is ambiguous or insufficient, escalate (9)",
         "- NEVER repeat an action marked [DONE] — pick a DIFFERENT number",
         "",
@@ -304,11 +305,12 @@ def run_inference():
         max_steps = task_config["max_steps"]
         episode_results = []
 
+        env = SecOpsEnvironment(
+            task_name=task_name, max_steps=max_steps
+        )
+
         for ep in range(num_episodes):
-            env = SecOpsEnvironment(
-                task_name=task_name, max_steps=max_steps, seed=42 + ep
-            )
-            obs = env.reset()
+            obs = env.reset(seed=42 + ep)
 
             print(f"[START] task={task_name} env=secops_env model={model_display}")
 
@@ -347,7 +349,6 @@ def run_inference():
                 "investigation_count": obs.metadata.get("investigation_count", 0),
             })
 
-            env.close()
             task_score = grade_task(task_name, episode_results)
 
             rewards_str = ",".join(f"{r:.2f}" for r in step_rewards)
@@ -356,6 +357,8 @@ def run_inference():
                 f"[END] success={success_str} steps={step_num} "
                 f"score={task_score:.3f} rewards={rewards_str}"
             )
+
+        env.close()
 
 
 if __name__ == "__main__":

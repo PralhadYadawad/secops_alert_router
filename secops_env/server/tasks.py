@@ -114,6 +114,14 @@ TASKS = {
             "Queue episode ends when all slots are resolved or total steps exhausted."
         ),
     },
+    "auto-scaling-triage": {
+        "num_episodes": 10,
+        "categories": ["phishing", "malware", "insider_threat", "lateral_movement", "data_exfiltration", "evasion"],
+        "difficulties": ["auto"],
+        "threat_ratio": 0.60,
+        "max_steps": 12,
+        "description": "Auto-Scaling: Difficulty automatically ramps up from Easy to Expert depending on the agent's win streak",
+    },
 }
 
 TASK_NAMES = list(TASKS.keys())

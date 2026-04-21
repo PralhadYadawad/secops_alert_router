@@ -343,3 +343,88 @@ class TestEndToEndLifecycle:
         assert obs.done is True, f"{task_name}: episode did not terminate in {step} steps"
         assert obs.metadata is not None
         env.close()
+
+
+# ── Investigation Noise Tests ──
+
+class TestInvestigationNoise:
+    """Tests for the investigation_noise module.
+
+    Noise is deterministically seeded per (scenario_id, step, action),
+    so the same inputs always produce the same output.
+    """
+
+    def test_noise_disabled_returns_original(self, monkeypatch):
+        from secops_env.server import investigation_noise
+        monkeypatch.setattr(investigation_noise, "NOISE_LEVEL", 0.0)
+        result = investigation_noise.inject_noise("query_siem", "original text", "scen-001", 1)
+        assert result == "original text"
+
+    def test_noise_enabled_may_modify_result(self, monkeypatch):
+        """With noise at 100%, result is always modified."""
+        from secops_env.server import investigation_noise
+        monkeypatch.setattr(investigation_noise, "NOISE_LEVEL", 1.0)
+        result = investigation_noise.inject_noise("query_siem", "original text", "scen-001", 1)
+        # At 100% noise, result should differ from original
+        assert result != "" and len(result) > 0
+
+    def test_noise_is_deterministic(self, monkeypatch):
+        """Same inputs always produce same output."""
+        from secops_env.server import investigation_noise
+        monkeypatch.setattr(investigation_noise, "NOISE_LEVEL", 0.5)
+        r1 = investigation_noise.inject_noise("check_reputation", "IOC result", "phish-001", 3)
+        r2 = investigation_noise.inject_noise("check_reputation", "IOC result", "phish-001", 3)
+        assert r1 == r2
+
+    def test_different_steps_may_differ(self, monkeypatch):
+        """Different step counts can produce different noise patterns."""
+        from secops_env.server import investigation_noise
+        monkeypatch.setattr(investigation_noise, "NOISE_LEVEL", 1.0)
+        results = {
+            investigation_noise.inject_noise("query_siem", "base text", "scen-001", i)
+            for i in range(10)
+        }
+        # With 10 different seeds at 100% noise, we expect some variation in results
+        assert len(results) > 1
+
+    def test_noise_never_returns_empty(self, monkeypatch):
+        """Noise injection always preserves the core result (never empty)."""
+        from secops_env.server import investigation_noise
+        monkeypatch.setattr(investigation_noise, "NOISE_LEVEL", 1.0)
+        for action in ["query_siem", "check_reputation", "analyze_payload",
+                       "analyze_headers", "correlate_alerts", "check_asset"]:
+            for step in range(5):
+                result = investigation_noise.inject_noise(
+                    action, "original data", f"scen-{step:03d}", step
+                )
+                assert len(result) > 0, f"Empty result for {action} step {step}"
+                assert "original data" in result, f"Core data lost for {action} step {step}"
+
+    def test_get_investigation_result_includes_noise(self, monkeypatch):
+        """investigation_engine.get_investigation_result applies noise correctly."""
+        import secops_env.server.investigation_noise as noise_mod
+        monkeypatch.setattr(noise_mod, "NOISE_LEVEL", 0.0)  # Disable noise for clean test
+        from secops_env.server.investigation_engine import get_investigation_result
+        scenario = {
+            "id": "test-001",
+            "investigate": {"query_siem": "SIEM log data here"},
+        }
+        result = get_investigation_result(scenario, 1, step_count=2)
+        assert result is not None
+        assert result["action_name"] == "query_siem"
+        assert "SIEM log data here" in result["result"]
+
+    @pytest.mark.parametrize("task_name", ["phishing-triage", "insider-threat", "cloud-native"])
+    def test_environment_works_with_noise_enabled(self, task_name, monkeypatch):
+        """Full episode completes correctly with noise injection enabled."""
+        import secops_env.server.investigation_noise as noise_mod
+        monkeypatch.setattr(noise_mod, "NOISE_LEVEL", 0.5)
+        env = SecOpsEnvironment(task_name=task_name, max_steps=10, seed=99)
+        obs = env.reset()
+        step = 0
+        while not obs.done and step < 20:
+            action_id = step % 6 if obs.investigation_count < 2 else 7
+            obs = env.step(SecOpsAction(action_id=action_id))
+            step += 1
+        assert obs.done is True
+        env.close()

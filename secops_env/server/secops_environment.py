@@ -84,6 +84,7 @@ class SecOpsEnvironment(Environment):
         self._scenario: dict = {}
         self._done = False
         self._state = SecOpsState()
+        self._episode_history: list[bool] = []
         self.reset()
 
     def reset(
@@ -96,6 +97,7 @@ class SecOpsEnvironment(Environment):
         if self.rubric is not None:
             self.rubric.reset()
 
+        self._alert_gen._episode_history = self._episode_history
         self._scenario = self._alert_gen.generate()
         logger.info(
             "Episode reset: scenario=%s task=%s severity=%s threat=%s",
@@ -182,7 +184,9 @@ class SecOpsEnvironment(Environment):
         # Get investigation result if applicable
         inv_result = None
         if action_id in SAFE_ACTIONS and action_name not in self._state.actions_taken:
-            inv_result = get_investigation_result(self._scenario, action_id)
+            inv_result = get_investigation_result(
+                self._scenario, action_id, step_count=self._state.step_count
+            )
 
         # Compute reward
         reward, status = compute_reward(
@@ -219,6 +223,8 @@ class SecOpsEnvironment(Environment):
         self._done = done
 
         if done:
+            success = status in ("true_positive", "true_negative", "escalated_true_threat", "timeout_benign")
+            self._episode_history.append(success)
             logger.info(
                 "Episode ended: scenario=%s outcome=%s reward=%.2f steps=%d",
                 self._state.scenario_id, status,

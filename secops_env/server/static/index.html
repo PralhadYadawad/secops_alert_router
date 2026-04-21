@@ -57,7 +57,8 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(0,229,255,0.025) 1px, transparent 0);
+  background-image: linear-gradient(rgba(0, 229, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 229, 255, 0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
   background-size: 24px 24px;
   pointer-events: none;
   z-index: 0;
@@ -67,7 +68,10 @@ body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.018) 2px, rgba(0,0,0,0.018) 4px);
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.15) 2px, rgba(0, 0, 0, 0.15) 4px),
+    radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none; z-index: 9999; opacity: 0.8; mix-blend-mode: multiply;
   pointer-events: none;
   z-index: 0;
 }
@@ -84,8 +88,8 @@ body > * { position: relative; z-index: 1; }
 /* ===== HEADER ===== */
 .header {
   height: 52px;
-  background: rgba(18,18,18,0.88);
-  backdrop-filter: blur(16px) saturate(180%);
+  background: rgba(10, 12, 16, 0.85);
+  backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-bottom: 1px solid var(--border-primary);
   display: flex;
@@ -152,7 +156,10 @@ body > * { position: relative; z-index: 1; }
 
 /* ===== CARDS ===== */
 .card {
-  background: var(--bg-secondary);
+  background: rgba(20, 24, 30, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5), var(--shadow-sm);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius);
   overflow: hidden;
@@ -232,7 +239,7 @@ body > * { position: relative; z-index: 1; }
 }
 
 .btn-action::before { content: ''; position: absolute; inset: 0; opacity: 0; transition: opacity var(--transition); pointer-events: none; }
-.btn-action:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.25); border-color: var(--border-hover); }
+.btn-action:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4), inset 0 0 12px rgba(255,255,255,0.03); border-color: var(--border-hover); }
 .btn-action:hover:not(:disabled)::before { opacity: 1; }
 .btn-action:active:not(:disabled) { transform: translateY(0) scale(0.98); transition-duration: 0.05s; }
 .btn-action:disabled { opacity: 0.25; cursor: not-allowed; transform: none; }
@@ -241,6 +248,18 @@ body > * { position: relative; z-index: 1; }
 .btn-action--safe::before { background: linear-gradient(135deg, rgba(0,229,255,0.05), transparent); }
 .btn-action--contain { border-left-color: var(--accent-orange); }
 .btn-action--contain::before { background: linear-gradient(135deg, rgba(255,171,0,0.05), transparent); }
+
+.btn-action--contain:hover:not(:disabled)::before { 
+    background: repeating-linear-gradient(45deg, rgba(255,171,0,0.08), rgba(255,171,0,0.08) 10px, rgba(255,171,0,0.02) 10px, rgba(255,171,0,0.02) 20px); 
+    opacity: 1;
+}
+
+
+.btn-action--contain:hover:not(:disabled)::before { 
+    background: repeating-linear-gradient(45deg, rgba(255,171,0,0.08), rgba(255,171,0,0.08) 10px, rgba(255,171,0,0.02) 10px, rgba(255,171,0,0.02) 20px); 
+    opacity: 1;
+}
+
 .btn-action--escalate { border-left-color: var(--accent-purple); }
 .btn-action--escalate::before { background: linear-gradient(135deg, rgba(188,140,255,0.05), transparent); }
 .btn-action--resolve { border-left-color: var(--accent-green); }
@@ -299,7 +318,8 @@ body > * { position: relative; z-index: 1; }
 
 /* ===== TERMINAL ===== */
 .terminal {
-  background: var(--bg-inset); border: 1px solid var(--border-secondary);
+  background: rgba(5, 7, 10, 0.85);
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,229,255,0.05); border: 1px solid var(--border-secondary);
   border-left: 2px solid var(--accent-cyan);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 10px 14px; font-family: var(--font-mono);
@@ -327,7 +347,10 @@ body > * { position: relative; z-index: 1; }
 }
 
 .inv-entry {
-  background: var(--bg-inset); border: 1px solid var(--border-secondary);
+  background: rgba(10, 14, 20, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(88,166,255,0.15);
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.5); border: 1px solid var(--border-secondary);
   border-radius: var(--radius-sm); overflow: hidden;
   animation: fadeInUp 0.3s ease-out;
 }
@@ -732,6 +755,9 @@ body > * { position: relative; z-index: 1; }
       </button>
       <button class="tab" data-task="queue-triage" onclick="selectTask(this)">
         <span class="diff diff-hard">M-HARD</span>queue-triage
+      </button>
+      <button class="tab" data-task="auto-scaling-triage" onclick="selectTask(this)">
+        <span class="diff diff-expert">AUTO</span>auto-scaling
       </button>
     </div>
 
