@@ -21,6 +21,8 @@ pinned: false
 
 [**Live Demo**](https://huggingface.co/spaces/pralhadyadawad/secops-alert-router) | [Quick Start](#quick-start) | [API Reference](#api-reference) | [Contributing](#contributing)
 
+<img src="media/secop_router.gif" alt="SecOps Alert Router — SOC Dashboard Demo" width="800"/>
+
 </div>
 
 ---
