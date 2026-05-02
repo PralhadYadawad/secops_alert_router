@@ -13,6 +13,7 @@ environment variable (float 0.0–1.0, default 0.20).
 Set to 0.0 to disable completely (fully clean investigation data).
 """
 
+import hashlib
 import os
 import random
 
@@ -132,8 +133,8 @@ def inject_noise(
     if NOISE_LEVEL <= 0.0 or not result:
         return result
 
-    # Deterministic RNG per (scenario, step, action) triple
-    seed = hash(f"{scenario_id}:{step_count}:{action_name}") & 0x7FFFFFFF
+    # Deterministic RNG per (scenario, step, action) triple — hashlib avoids PYTHONHASHSEED
+    seed = int(hashlib.md5(f"{scenario_id}:{step_count}:{action_name}".encode()).hexdigest(), 16) & 0x7FFFFFFF
     rng = random.Random(seed)
 
     if rng.random() >= NOISE_LEVEL:

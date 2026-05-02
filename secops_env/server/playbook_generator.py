@@ -160,8 +160,10 @@ def _build_timeline(
         })
         step_num += 1
 
-    # Append the terminal response action (last action taken)
-    if actions_taken:
+    # Only add a "response" entry if the last action was a containment/resolution action.
+    # Timeout episodes end on an investigation action — mislabeling it as "response" is wrong.
+    _RESPONSE_ACTIONS = {"block_source", "isolate_host", "disable_account", "escalate", "resolve_benign"}
+    if actions_taken and actions_taken[-1] in _RESPONSE_ACTIONS:
         terminal_action = actions_taken[-1]
         timeline.append({
             "step": step_num,

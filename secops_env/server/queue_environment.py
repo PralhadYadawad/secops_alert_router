@@ -245,6 +245,9 @@ class QueueEnvironment(Environment):
         alerts_remaining = sum(1 for s in self._slots if not s["done"])
 
         total_cumulative = sum(s["cumulative_reward"] for s in self._slots)
+        # Store per-slot average so SecOpsTriageRubric's [-100, +20] normalization
+        # remains discriminative across queue sizes (raw total would overflow the range).
+        avg_cumulative = total_cumulative / self._queue_size if self._queue_size else 0.0
         return QueueObservation(
             active_alert=active_dict,
             queue_summary=summary,
@@ -257,7 +260,8 @@ class QueueEnvironment(Environment):
             metadata={
                 "active_index": self._active_index,
                 "task_name": self._task_name,
-                "cumulative_reward": total_cumulative,
+                "cumulative_reward": avg_cumulative,
+                "total_cumulative_reward": total_cumulative,
             },
         )
 

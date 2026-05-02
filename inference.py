@@ -126,19 +126,25 @@ def _is_duplicate_investigation(action_id: int, obs) -> bool:
 
 
 def _parse_action_from_text(text: str) -> int:
-    """Extract a valid action ID (0-10) from LLM response text."""
+    """Extract a valid action ID (0-10) from LLM response text.
+
+    Takes the LAST valid number found so reasoning text like
+    "Based on step 2, I choose 10" correctly returns 10.
+    """
     import re
-    # Find all integers in the text, check for valid action IDs
+    candidates = []
     for match in re.finditer(r'\b(\d+)\b', text):
         val = int(match.group(1))
         if 0 <= val <= 10:
-            return val
-    # Fallback: scan for any digit sequence (LLM might just say "10" with no word boundary)
+            candidates.append(val)
+    if candidates:
+        return candidates[-1]
+    # Fallback: no word boundaries (LLM might output "10" with no surrounding text)
     for match in re.finditer(r'(\d+)', text):
         val = int(match.group(1))
         if 0 <= val <= 10:
-            return val
-    return -1
+            candidates.append(val)
+    return candidates[-1] if candidates else -1
 
 
 def get_llm_action(obs) -> int:
