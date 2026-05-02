@@ -1,12 +1,3 @@
----
-title: SecOps Alert Router
-emoji: "\U0001F6A8"
-colorFrom: blue
-colorTo: red
-sdk: docker
-app_port: 8000
-pinned: false
----
 <div align="center">
 
 # SecOps Alert Router
