@@ -247,7 +247,10 @@ class TestComplianceMultipliers:
 class TestGraderComprehensive:
     @pytest.mark.parametrize("task_name", TASK_NAMES)
     def test_all_correct_high_score(self, task_name):
-        episodes = [{"outcome": "true_positive", "steps": 3, "max_steps": 10, "investigation_count": 3}] * 5
+        if task_name == "queue-triage":
+            episodes = [{"outcome": "queue_complete", "steps": 10, "max_steps": 40, "investigation_count": 10}] * 3
+        else:
+            episodes = [{"outcome": "true_positive", "steps": 3, "max_steps": 10, "investigation_count": 3}] * 5
         score = grade_task(task_name, episodes)
         assert 0.5 < score < 1.0, f"{task_name}: all-correct score too low: {score}"
 
