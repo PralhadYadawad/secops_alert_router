@@ -310,6 +310,10 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
     elif task_name == "auto-scaling-triage":
         # Dynamic difficulty task: weight accuracy heavily since difficulty varies per agent.
         # Speed and decisive rate rewarded to encourage efficient triage at all levels.
+        fn_count = sum(
+            1 for ep in episode_results if ep["outcome"] in {"false_negative", "timeout_breach", "compliance_breach"}
+        )
+        miss_rate = fn_count / total
         score = (
             0.40 * accuracy
             + 0.25 * speed
