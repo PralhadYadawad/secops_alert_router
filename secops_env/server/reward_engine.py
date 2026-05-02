@@ -79,7 +79,7 @@ def compute_reward(
     if action_id in SAFE_ACTIONS:
         # Timeout check BEFORE duplicate check — duplicates must not bypass termination
         if step_count >= max_steps:
-            return _timeout_reward(is_threat, severity), _timeout_status(is_threat)
+            return _timeout_reward(is_threat, severity, scenario), _timeout_status(is_threat)
 
         if action_name in actions_taken:
             return -2.0, "duplicate_action"
@@ -103,7 +103,7 @@ def compute_reward(
             penalty = -5.0
             status = "procedure_violation"
             if step_count >= max_steps:
-                return _timeout_reward(is_threat, severity), _timeout_status(is_threat)
+                return _timeout_reward(is_threat, severity, scenario), _timeout_status(is_threat)
             return penalty, status
 
         if is_threat:
@@ -177,11 +177,24 @@ def compute_reward(
     return 0.0, "unknown_action"
 
 
-def _timeout_reward(is_threat: bool, severity: str) -> float:
-    """Reward when episode ends due to step limit."""
+def _timeout_reward(is_threat: bool, severity: str, scenario: dict | None = None) -> float:
+    """Reward when episode ends due to step limit.
+
+    Applies compliance multipliers so that stalling to timeout on a regulated
+    scenario is penalised equally to explicitly dismissing it.
+    """
     if is_threat:
         sev_mult = SEVERITY_MULTIPLIER.get(severity, 1.0)
-        return -25.0 * sev_mult  # Breach due to slow response
+        base = -25.0 * sev_mult
+        if scenario:
+            compliance = scenario.get("compliance", {})
+            framework = compliance.get("framework", "")
+            comp_mult = COMPLIANCE_FN_MULTIPLIER.get(framework, 1.0)
+            vol_mult = DATA_VOLUME_MULTIPLIER.get(
+                compliance.get("data_volume", "single"), 1.0
+            )
+            base *= comp_mult * vol_mult
+        return max(base, -100.0)  # same clamp as false negative
     return 0.5  # Benign alert timed out — acceptable but not great
 
 

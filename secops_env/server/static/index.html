@@ -840,7 +840,7 @@ body > * { position: relative; z-index: 1; }
 
     <!-- Controls -->
     <div class="controls-row">
-      <button class="btn btn-primary" onclick="resetEnv()">Reset</button>
+      <button class="btn btn-primary" onclick="manualReset()">Reset</button>
       <button class="btn" onclick="autoRun()" id="autoRunBtn">Auto-Run</button>
       <button class="btn btn-danger" onclick="clearAll()">Clear</button>
     </div>
@@ -1423,6 +1423,16 @@ function drawChart() {
 window.addEventListener('resize', drawChart);
 
 /* ===== API CALLS ===== */
+function manualReset() {
+  // Stop any running autorun before resetting — otherwise the loop resumes
+  // on the new episode and hijacks it.
+  if (autoRunning) {
+    autoRunning = false;
+    document.getElementById('autoRunBtn').textContent = 'Auto-Run';
+  }
+  resetEnv();
+}
+
 async function resetEnv() {
   try {
     document.getElementById('outcomeEl').className = 'outcome';
