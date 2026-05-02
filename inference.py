@@ -378,11 +378,13 @@ def run_inference():
                 meta_reward = (obs.metadata or {}).get("cumulative_reward", obs.reward)
                 inv_count = (obs.metadata or {}).get("investigation_count", 0)
 
+            # Queue episodes use max_total_steps (40) not per-alert max_steps (10)
+            effective_max_steps = task_config.get("max_total_steps", max_steps) if is_queue else max_steps
             episode_results.append({
                 "reward": meta_reward,
                 "steps": step_num,
                 "outcome": outcome,
-                "max_steps": max_steps,
+                "max_steps": effective_max_steps,
                 "investigation_count": inv_count,
             })
 

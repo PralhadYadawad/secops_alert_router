@@ -63,6 +63,7 @@ class QueueEnvironment(Environment):
         self._done = False
         self._previous_index = 0
         self._critical_resolved_before_medium = False
+        self._outer_cumulative_reward = 0.0
 
         self.reset()
 
@@ -112,6 +113,7 @@ class QueueEnvironment(Environment):
         self._done = False
         self._previous_index = 0
         self._critical_resolved_before_medium = False
+        self._outer_cumulative_reward = 0.0
         return self._build_queue_obs(reward=0.0, done=False)
 
     def step(self, action: QueueAction, **kwargs: Any) -> QueueObservation:
@@ -146,6 +148,7 @@ class QueueEnvironment(Environment):
         # If this slot is already done, small penalty for wasting a step
         if slot["done"]:
             self._total_steps += 1
+            self._outer_cumulative_reward += -1.0
             return self._build_queue_obs(reward=-1.0, done=self._check_episode_done())
 
         # Delegate to inner environment
@@ -178,6 +181,7 @@ class QueueEnvironment(Environment):
         if episode_done:
             reward += self._queue_completion_bonus()
 
+        self._outer_cumulative_reward += reward
         return self._build_queue_obs(reward=reward, done=episode_done)
 
     def _check_episode_done(self) -> bool:
@@ -244,10 +248,11 @@ class QueueEnvironment(Environment):
 
         alerts_remaining = sum(1 for s in self._slots if not s["done"])
 
-        total_cumulative = sum(s["cumulative_reward"] for s in self._slots)
-        # Store per-slot average so SecOpsTriageRubric's [-100, +20] normalization
-        # remains discriminative across queue sizes (raw total would overflow the range).
-        avg_cumulative = total_cumulative / self._queue_size if self._queue_size else 0.0
+        total_inner = sum(s["cumulative_reward"] for s in self._slots)
+        # Use per-slot average of OUTER cumulative (includes switch penalties + completion
+        # bonus) so SecOpsTriageRubric's [-100, +20] normalization captures full queue
+        # efficiency signal, not just inner per-alert rewards.
+        outer_avg = self._outer_cumulative_reward / self._queue_size if self._queue_size else 0.0
         return QueueObservation(
             active_alert=active_dict,
             queue_summary=summary,
@@ -260,8 +265,8 @@ class QueueEnvironment(Environment):
             metadata={
                 "active_index": self._active_index,
                 "task_name": self._task_name,
-                "cumulative_reward": avg_cumulative,
-                "total_cumulative_reward": total_cumulative,
+                "cumulative_reward": outer_avg,
+                "total_cumulative_reward": total_inner,
             },
         )
 

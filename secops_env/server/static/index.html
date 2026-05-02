@@ -946,7 +946,8 @@ function connectWS() {
           currentObs = obs;
           updateAlertPanel(obs);
           if (obs.done) {
-            showOutcome(obs);
+            const cumReward = obs.episode_cumulative_reward ?? (data.metadata?.cumulative_reward) ?? obs.reward;
+            showOutcome(obs, cumReward);
             const pbBtn = document.getElementById('playbookExportBtn');
             if (pbBtn) pbBtn.style.display = 'inline-block';
           }
@@ -956,7 +957,8 @@ function connectWS() {
           currentObs = activeObs;
           updateAlertPanel(activeObs);
           if (data.done) {
-            showOutcome(activeObs);
+            const cumReward = (data.metadata?.cumulative_reward) ?? activeObs.episode_cumulative_reward ?? activeObs.reward;
+            showOutcome(activeObs, cumReward);
           }
         }
       } catch(err) { /* ignore non-obs pings */ }

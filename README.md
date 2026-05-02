@@ -179,7 +179,7 @@ pip install -r requirements.txt
 python inference.py
 ```
 
-This runs all 6 tasks with a heuristic baseline (or an LLM if `HF_TOKEN` is set). Output follows the OpenEnv `[START]/[STEP]/[END]` format.
+This runs all 12 tasks with a heuristic baseline (or an LLM if `HF_TOKEN` is set). Output follows the OpenEnv `[START]/[STEP]/[END]` format.
 
 ### Start the SOC dashboard
 
@@ -338,9 +338,9 @@ Six-component information-theoretic reward shaping:
 | **False Positive** | -10 to -20 | Penalty scaled by target asset criticality (low=0.6x, critical=2.0x) |
 | **Escalation** | +5 to -3 | Partial credit for true threats (+5), penalty for false alarms (-3) |
 | **True Negative** | +3 to +4.5 | Bonus for investigation depth before resolution |
-| **False Negative** | -25 to -50 | Severity-scaled catastrophic penalty (medium=1x, critical=2x) |
+| **False Negative** | -25 to -100 | Severity-scaled penalty (medium=1x, critical=2x) amplified by compliance multipliers (GDPR/HIPAA 3x, data volume 2x), clamped at -100 |
 
-Additional penalties: duplicate investigation (-2), procedure violation (-5), timeout breach (-25 to -50).
+Additional penalties: duplicate investigation (-2), procedure violation (-5), timeout breach (-25 to -50 base, compliance-amplified up to -100).
 
 ### Scenario Library
 
@@ -362,7 +362,7 @@ Each scenario includes **pre-authored investigation data for all 6 investigation
 
 ## Tasks
 
-Six tasks with genuine difficulty progression:
+12 tasks with genuine difficulty progression:
 
 | Task | Difficulty | Episodes | Max Steps | Threat Ratio | Focus |
 |------|-----------|----------|-----------|-------------|-------|
@@ -372,6 +372,12 @@ Six tasks with genuine difficulty progression:
 | `lateral-movement` | Medium-Hard | 8 | 12 | 70% | Detect attackers pivoting across network hosts |
 | `apt-campaign` | Hard | 10 | 12 | 75% | Multi-stage attacks needing cross-alert correlation |
 | `adversarial-evasion` | Expert | 10 | 15 | 80% | LOLBins, fileless malware, encoded payloads, slow-and-low APTs |
+| `compliance-triage` | Medium-Hard | 8 | 12 | 65% | GDPR/HIPAA/PCI-DSS regulated data --- compliance breaches carry 3x multiplier |
+| `cloud-native` | Medium-Hard | 8 | 12 | 65% | AWS/Azure/Kubernetes: IAM escalation, CloudTrail tampering, SSRF, container escape |
+| `hipaa-triage` | Medium-Expert | 8 | 12 | 65% | Healthcare EHR/IoMT alerts --- HIPAA false negatives carry 2.5x penalty |
+| `credential-access` | Easy-Expert | 8 | 12 | 65% | AD attacks: Kerberoasting, AS-REP, DCSync, Pass-the-Hash |
+| `queue-triage` | Medium | 3 | 40 total | 60% | Triage a 5-alert backlog --- prioritize critical threats across concurrent incidents |
+| `auto-scaling-triage` | Auto | 10 | 12 | 60% | Difficulty ramps from Easy to Expert based on win streak |
 
 ### Grading
 
@@ -408,7 +414,7 @@ Heuristic baseline (keyword matching + severity priors, no LLM):
 ```
 secops-alert-router/
 ├── inference.py                        # Entry point (LLM agent + heuristic fallback)
-├── openenv.yaml                        # OpenEnv manifest (6 tasks, metadata)
+├── openenv.yaml                        # OpenEnv manifest (12 tasks, metadata)
 ├── requirements.txt                    # Python dependencies
 ├── tests/
 │   └── test_environment.py             # 10 tests (scenarios, rewards, grading, bounds)

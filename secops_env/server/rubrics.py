@@ -64,8 +64,11 @@ class SecOpsTriageRubric(ExponentialDiscountingTrajectoryRubric):
 
         _, final_obs = trajectory[-1]
 
-        # Try cumulative reward from metadata first, fall back to final reward
+        # Preference order: metadata (stripped by OpenEnv sometimes) → explicit
+        # episode_cumulative_reward field (survives serialization) → final step reward
         cumulative = getattr(final_obs, "metadata", {}).get("cumulative_reward", None)
+        if cumulative is None:
+            cumulative = getattr(final_obs, "episode_cumulative_reward", None) or None
         raw = cumulative if cumulative is not None else getattr(final_obs, "reward", 0.0)
 
         normalized = (raw - MIN_RAW_REWARD) / (MAX_RAW_REWARD - MIN_RAW_REWARD)
