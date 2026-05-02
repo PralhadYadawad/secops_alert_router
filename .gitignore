@@ -1,1 +1,61 @@
+# ── Python artifacts ──────────────────────────────────────────────────────────
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+
+# ── Build / dist ──────────────────────────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── Secrets / environment variables ──────────────────────────────────────────
+.env
+.env.*
+*.session-state.json
+
+# ── Project memory (private — never goes public) ──────────────────────────────
+.vibecheqq/
+.claude/
+
+# ── Scratch / dev-only files ──────────────────────────────────────────────────
+MASTER_PLAN.md
+style_updater.py
+final.txt
+log.txt
+website.txt
+resource.txt
+rules.txt
+llm_inference_results.txt
+pytest_output.txt
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db

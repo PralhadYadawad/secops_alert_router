@@ -70,12 +70,12 @@ A simple keyword-matching heuristic scores **0.52 on phishing triage** and **0.6
      +-----v---+ +---v-----+ +------v--+ +----v----+
      |Scenario  | |Invest.  | | Reward  | | Grader  |
      | Engine   | | Engine  | | Engine  | |(tasks.py)|
-     |40 MITRE  | |SIEM/TI/ | |6-component| |4-dim   |
-     |templates | |asset data| |shaping  | |scoring  |
+     |61 curated| |SIEM/TI/ | |6-component| |4-dim   |
+     |scenarios | |asset data| |shaping  | |scoring  |
      +---------+ +---------+ +---------+ +---------+
 ```
 
-**Scenario Engine** generates alerts from 40 MITRE ATT&CK templates across 7 categories. **Investigation Engine** returns realistic text data (SIEM logs, threat intel, asset context) that agents must read. **Reward Engine** computes information-theoretic rewards based on investigation quality, response proportionality, and business impact. **Graders** score trajectories on 4 dimensions: accuracy, speed, evidence quality, and decisiveness.
+**Scenario Engine** generates alerts from 61 curated MITRE ATT&CK scenarios across 10 categories, procedurally expanded to a 183-alert pool to prevent memorization. **Investigation Engine** returns realistic text data (SIEM logs, threat intel, asset context) that agents must read. **Reward Engine** computes information-theoretic rewards based on investigation quality, response proportionality, and business impact (including compliance multipliers for GDPR/HIPAA/PCI-DSS). **Graders** score trajectories on 4 dimensions: accuracy, speed, evidence quality, and decisiveness.
 
 ---
 
@@ -266,7 +266,7 @@ curl -X POST http://localhost:8000/step \
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `task_name` | string | `"phishing-triage"` | One of the 6 task names |
+| `task_name` | string | `"phishing-triage"` | One of the 12 task names |
 | `max_steps` | int | Task-dependent | Episode timeout (overrides task default) |
 | `seed` | int | None | Random seed for reproducibility |
 
@@ -275,7 +275,7 @@ curl -X POST http://localhost:8000/step \
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `API_BASE_URL` | LLM API endpoint | `https://router.huggingface.co/v1` |
-| `MODEL_NAME` | LLM model identifier | `Qwen/Qwen2.5-72B-Instruct` |
+| `MODEL_NAME` | LLM model identifier | `meta-llama/Meta-Llama-3-70B-Instruct` |
 | `HF_TOKEN` | HuggingFace API token | None (falls back to heuristic) |
 
 ---
@@ -344,7 +344,7 @@ Additional penalties: duplicate investigation (-2), procedure violation (-5), ti
 
 ### Scenario Library
 
-**40 scenarios** across 7 MITRE ATT&CK categories:
+**61 curated scenarios** across 10 MITRE ATT&CK categories (expanded to 183 via procedural augmentation):
 
 | Category | Count | MITRE Tactics | Difficulty Range |
 |----------|-------|---------------|-----------------|
@@ -355,6 +355,9 @@ Additional penalties: duplicate investigation (-2), procedure violation (-5), ti
 | Data Exfiltration | 5 | Exfiltration (T1048, T1567) | Medium -- Hard |
 | DDoS | 4 | Impact (T1498, T1499) | Easy -- Medium |
 | Defense Evasion | 5 | Defense Evasion (T1218, T1036, T1027) | Hard -- Expert |
+| Cloud Native | 9 | Discovery, Privilege Escalation, Persistence | Medium -- Expert |
+| Healthcare / HIPAA | 6 | Impact (T1486), Exfiltration (T1048) | Medium -- Expert |
+| Credential Access | 6 | Credential Access (T1558, T1003, T1550) | Easy -- Expert |
 
 Each scenario includes **pre-authored investigation data for all 6 investigation types** --- SIEM logs, IOC reputation lookups, asset context, sandbox analysis, header examination, and alert correlation. Threat scenarios include realistic indicators of compromise; benign scenarios include plausible false-positive context.
 
@@ -426,17 +429,21 @@ secops-alert-router/
         ├── alert_generator.py          # Scenario-based alert factory with filters
         ├── investigation_engine.py     # Returns SIEM/threat-intel/asset data per action
         ├── reward_engine.py            # 6-component information-theoretic rewards
-        ├── tasks.py                    # 6 task definitions + 4-dimension graders
+        ├── tasks.py                    # 12 task definitions + 4-dimension graders
         ├── rubrics.py                  # Trajectory scoring rubric for OpenEnv
-        ├── scenarios/                  # 40 MITRE ATT&CK scenario templates
+        ├── scenarios/                  # 61 curated MITRE ATT&CK scenarios (183 augmented)
         │   ├── __init__.py             # Scenario index + pick_scenario()
+        │   ├── augmentor.py            # Procedural augmentation (3× pool via IP/host/user variation)
         │   ├── phishing.py             # 8 scenarios (spearphishing, BEC, AiTM, etc.)
         │   ├── malware.py              # 7 scenarios (Emotet, LockBit, CobaltStrike, etc.)
         │   ├── insider.py              # 6 scenarios (data theft, policy violations)
         │   ├── lateral.py              # 5 scenarios (pass-the-hash, RDP, WMI)
         │   ├── exfil.py                # 5 scenarios (DNS tunneling, cloud upload)
         │   ├── ddos.py                 # 4 scenarios (volumetric, application-layer)
-        │   └── evasion.py              # 5 scenarios (LOLBins, fileless, APT29)
+        │   ├── evasion.py              # 5 scenarios (LOLBins, fileless, APT29)
+        │   ├── cloud.py                # 9 scenarios (AWS IAM, CloudTrail, K8s, SSRF)
+        │   ├── healthcare.py           # 6 scenarios (EHR, ransomware, PHI, IoMT — HIPAA)
+        │   └── credential_access.py    # 6 scenarios (Kerberoasting, DCSync, Pass-the-Hash)
         ├── static/
         │   └── index.html              # SOC dark-mode dashboard (real-time triage UI)
         └── Dockerfile                  # Container deployment for HF Spaces
@@ -510,21 +517,20 @@ python inference.py               # run baseline
 
 ## Roadmap
 
-### Near-term
-- [ ] WebSocket streaming for real-time dashboard updates
-- [ ] Multi-alert queue mode (triage a backlog, not one at a time)
-- [ ] Scenario difficulty auto-scaling based on agent performance
-- [ ] Integration with real SIEM APIs (Splunk, Elastic, Sentinel) for scenario generation
+### Shipped in V3
+- [x] WebSocket streaming for real-time dashboard updates
+- [x] Multi-alert queue mode with switch penalty and priority bonuses
+- [x] Dynamic difficulty auto-scaling based on win streak
+- [x] SOAR playbook generation from episode trajectory (`/playbook` endpoint)
+- [x] Compliance-aware rewards (GDPR 3x, HIPAA 2.5x, PCI-DSS 2x false-negative multipliers)
+- [x] Investigation noise injection (20% partial/conflicting/red-herring at seed-deterministic rate)
+- [x] Security hardening (API key auth, rate limiting, CORS, WS connection limits)
+- [x] CI/CD pipeline (GitHub Actions: pytest + coverage on every push)
 
-### Medium-term
+### Planned
+- [ ] Integration with real SIEM APIs (Splunk, Elastic, Sentinel) for scenario generation
 - [ ] Multi-agent coordination (L1/L2/L3 analyst hierarchy)
 - [ ] Continuous learning from analyst feedback
-- [ ] Alert enrichment pipeline with live threat intelligence feeds
-- [ ] SOAR playbook generation from learned policies
-
-### Long-term
-- [ ] Production deployment as a SOAR co-pilot
-- [ ] Compliance-aware triage (GDPR, HIPAA, PCI-DSS context in decisions)
 - [ ] Attack simulation integration (Atomic Red Team, Caldera) for scenario generation
 - [ ] SOC team training mode (human analyst vs. AI benchmark)
 
