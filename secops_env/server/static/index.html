@@ -1581,8 +1581,9 @@ async function autoRun() {
         // 3+ investigations gathered — decide based on findings, not just severity
         const isThreatLikely = _autoRunThreatSignal(currentObs);
         if (isThreatLikely) {
-          // Proportional containment: critical→isolate_host, high→block_source, medium→disable_account
-          action = sev === 'critical' ? 7 : sev === 'high' ? 6 : 8;
+          // Proportional containment matching reward_engine's proportional_map:
+          // isolate_host(7) for critical, block_source(6) for high/medium
+          action = sev === 'critical' ? 7 : 6;
         } else {
           action = 10; // resolve_benign
         }

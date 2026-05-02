@@ -294,17 +294,16 @@ def grade_task(task_name: str, episode_results: list[dict]) -> float:
         )
 
     elif task_name == "queue-triage":
-        # Multi-alert queue: accuracy, speed (total budget), and completion rate matter.
-        # Queue episodes report per-slot outcomes aggregated into episode_results.
-        fn_count = sum(
-            1 for ep in episode_results if ep["outcome"] in {"false_negative", "timeout_breach", "compliance_breach"}
-        )
-        miss_rate = fn_count / total
+        # Multi-alert queue: outcome is "queue_complete" (all slots cleared) or "queue_timeout".
+        # Use queue-specific accuracy and miss_rate rather than the individual-alert sets above.
+        complete_count = sum(1 for ep in episode_results if ep["outcome"] == "queue_complete")
+        timeout_count = sum(1 for ep in episode_results if ep["outcome"] == "queue_timeout")
+        queue_accuracy = complete_count / total
+        queue_miss_rate = timeout_count / total
         score = (
-            0.30 * accuracy
-            + 0.25 * speed
-            + 0.25 * (1.0 - miss_rate)
-            + 0.20 * decisive_rate
+            0.45 * queue_accuracy
+            + 0.30 * speed
+            + 0.25 * (1.0 - queue_miss_rate)
         )
 
     elif task_name == "auto-scaling-triage":

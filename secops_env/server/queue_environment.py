@@ -244,6 +244,7 @@ class QueueEnvironment(Environment):
 
         alerts_remaining = sum(1 for s in self._slots if not s["done"])
 
+        total_cumulative = sum(s["cumulative_reward"] for s in self._slots)
         return QueueObservation(
             active_alert=active_dict,
             queue_summary=summary,
@@ -256,6 +257,7 @@ class QueueEnvironment(Environment):
             metadata={
                 "active_index": self._active_index,
                 "task_name": self._task_name,
+                "cumulative_reward": total_cumulative,
             },
         )
 

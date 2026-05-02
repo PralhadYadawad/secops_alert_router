@@ -319,13 +319,29 @@ def run_inference():
 
             step_rewards = []
             step_num = 0
+            current_queue_slot = 0  # tracks which alert slot to work on
 
             step_limit = (task_config.get("max_total_steps", max_steps * 2) * 2) if is_queue else max_steps * 2
             while not obs.done and step_num < step_limit:
-                # For queue-triage, get the active alert obs for LLM prompting
-                llm_obs = obs.active_alert if is_queue and hasattr(obs, "active_alert") else obs
-                action_id = get_llm_action(llm_obs)
-                action = QueueAction(action_id=action_id, alert_index=0) if is_queue else SecOpsAction(action_id=action_id)
+                if is_queue:
+                    # Find the first undone slot to act on
+                    queue_summary = getattr(obs, "queue_summary", []) or []
+                    undone_slots = [i for i, s in enumerate(queue_summary) if not s.get("done")]
+                    if undone_slots:
+                        current_queue_slot = undone_slots[0]
+                    # Convert active_alert dict → SecOpsObservation for LLM/heuristic
+                    active_dict = getattr(obs, "active_alert", {}) or {}
+                    try:
+                        from secops_env.models import SecOpsObservation as _SOObs
+                        llm_obs = _SOObs(**active_dict)
+                    except Exception:
+                        llm_obs = obs
+                    action_id = get_llm_action(llm_obs)
+                    action = QueueAction(action_id=action_id, alert_index=current_queue_slot)
+                else:
+                    action_id = get_llm_action(obs)
+                    action = SecOpsAction(action_id=action_id)
+
                 obs = env.step(action)
                 step_num += 1
 
@@ -348,16 +364,20 @@ def run_inference():
             if is_queue:
                 outcome = "queue_complete" if all(s.get("done") for s in (obs.queue_summary or [])) else "queue_timeout"
                 success = outcome == "queue_complete"
+                meta_reward = (obs.metadata or {}).get("cumulative_reward", obs.reward)
+                inv_count = 0
             else:
                 outcome = (obs.metadata or {}).get("status", "unknown")
                 success = outcome in ("true_positive", "true_negative", "escalated_true_threat", "timeout_benign")
+                meta_reward = (obs.metadata or {}).get("cumulative_reward", obs.reward)
+                inv_count = (obs.metadata or {}).get("investigation_count", 0)
 
             episode_results.append({
-                "reward": obs.metadata.get("cumulative_reward", obs.reward),
+                "reward": meta_reward,
                 "steps": step_num,
                 "outcome": outcome,
                 "max_steps": max_steps,
-                "investigation_count": obs.metadata.get("investigation_count", 0),
+                "investigation_count": inv_count,
             })
 
             task_score = grade_task(task_name, episode_results)
